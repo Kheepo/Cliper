@@ -1,0 +1,32 @@
+{
+  "backend_health": {
+    "status": "ERROR",
+    "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))"
+  },
+  "frontend_access": {
+    "status": "WORKING",
+    "code": 200
+  },
+  "frontend_structure": {
+    "react_root": true,
+    "vite": true
+  },
+  "api_availability": {
+    "available": 8,
+    "total": 8,
+    "rate": 100.0
+  },
+  "authentication": {
+    "available": 0,
+    "total": 5,
+    "rate": 0.0
+  },
+  "database": {
+    "status": "ISSUES",
+    "details": {}
+  },
+  "file_upload": {
+    "status": "AVAILABLE",
+    "requires_auth": true
+  }
+}

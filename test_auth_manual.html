@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .credentials {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .test-links a {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .test-links a:hover { background-color: #218838; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Frontend Authentication Test</h1>
+        <p>This page tests the authentication flow and Results page access.</p>
+        
+        <div class="credentials">
+            <h3>📋 Test Credentials</h3>
+            <p><strong>Email:</strong> testuser_1758806039@example.com</p>
+            <p><strong>Password:</strong> testpassword123</p>
+        </div>
+        
+        <div class="test-links">
+            <a href="http://localhost:3000/login" target="_blank">🔐 Login Page</a>
+            <a href="http://localhost:3000/dashboard" target="_blank">📊 Dashboard</a>
+            <a href="http://localhost:3000/results/test-job-id" target="_blank">📈 Results Page</a>
+            <a href="http://localhost:3000/" target="_blank">🏠 Home Page</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>🔧 Authentication Tests</h2>
+        <div id="status"></div>
+        
+        <button onclick="testBackendHealth()">Test Backend Health</button>
+        <button onclick="testLogin()">Test Login API</button>
+        <button onclick="testAuthStatus()">Test Auth Status</button>
+        <button onclick="testProtectedEndpoint()">Test Protected Endpoint</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div class="container">
+        <h2>📝 Manual Testing Steps</h2>
+        <ol>
+            <li><strong>Login Test:</strong>
+                <ul>
+                    <li>Click "🔐 Login Page" above</li>
+                    <li>Enter the test credentials</li>
+                    <li>Verify successful login</li>
+                </ul>
+            </li>
+            <li><strong>Dashboard Test:</strong>
+                <ul>
+                    <li>After login, click "📊 Dashboard"</li>
+                    <li>Verify dashboard loads correctly</li>
+                    <li>Check that user is authenticated</li>
+                </ul>
+            </li>
+            <li><strong>Results Page Test:</strong>
+                <ul>
+                    <li>Click "📈 Results Page"</li>
+                    <li>Verify NO white screen appears</li>
+                    <li>Check browser console for errors</li>
+                    <li>Verify authentication state is maintained</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+    
+    <div class="container">
+        <h2>🔍 Expected Results</h2>
+        <div class="info">
+            <h4>✅ Success Indicators:</h4>
+            <ul>
+                <li>Login page loads and accepts credentials</li>
+                <li>Dashboard shows authenticated user state</li>
+                <li>Results page loads without white screen</li>
+                <li>No 401 Unauthorized errors in console</li>
+                <li>Authentication state persists across page navigation</li>
+            </ul>
+        </div>
+        
+        <div class="error">
+            <h4>❌ Failure Indicators:</h4>
+            <ul>
+                <li>White screen on Results page</li>
+                <li>401 Unauthorized errors in console</li>
+                <li>Redirect loops between login and protected pages</li>
+                <li>Authentication state not persisting</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        const TEST_EMAIL = 'testuser_1758806039@example.com';
+        const TEST_PASSWORD = 'testpassword123';
+        let authToken = null;
+        
+        function addStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            statusDiv.appendChild(div);
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('status').innerHTML = '';
+        }
+        
+        async function testBackendHealth() {
+            try {
+                addStatus('Testing backend health...', 'info');
+                const response = await fetch(`${BACKEND_URL}/health`);
+                
+                if (response.ok) {
+                    addStatus('✅ Backend is healthy and running', 'success');
+                } else {
+                    addStatus(`❌ Backend health check failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Backend connection failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLogin() {
+            try {
+                addStatus('Testing login API...', 'info');
+                const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: TEST_EMAIL,
+                        password: TEST_PASSWORD
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.tokens.access_token;
+                    addStatus(`✅ Login successful! User: ${data.user.email}`, 'success');
+                    addStatus(`🔑 Token: ${authToken.substring(0, 20)}...`, 'info');
+                } else {
+                    const error = await response.text();
+                    addStatus(`❌ Login failed: ${response.status} - ${error}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAuthStatus() {
+            if (!authToken) {
+                addStatus('❌ No auth token. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                addStatus('Testing auth status...', 'info');
+                const response = await fetch(`${BACKEND_URL}/api/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    addStatus(`✅ Auth status OK! User: ${user.email} (ID: ${user.id})`, 'success');
+                } else {
+                    addStatus(`❌ Auth status failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addStatus(`❌ Auth status error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testProtectedEndpoint() {
+            if (!authToken) {
+                addStatus('❌ No auth token. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                addStatus('Testing protected endpoint (/api/jobs)...', 'info');
+                const response = await fetch(`${BACKEND_URL}/api/jobs`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const jobs = await response.json();
+                    addStatus(`✅ Protected endpoint accessible! Found ${jobs.length} jobs`, 'success');
+                } else if (response.status === 401) {
+                    addStatus(`❌ Protected endpoint failed: 401 Unauthorized`, 'error');
+                } else {
+                    addStatus(`⚠️ Protected endpoint status: ${response.status}`, 'info');
+                }
+            } catch (error) {
+                addStatus(`❌ Protected endpoint error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run backend health check on page load
+        window.addEventListener('load', () => {
+            addStatus('🚀 Authentication test page loaded', 'info');
+            testBackendHealth();
+        });
+    </script>
+</body>
+</html>

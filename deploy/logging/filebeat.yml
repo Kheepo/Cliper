@@ -1,0 +1,241 @@
+filebeat.inputs:
+- type: container
+  paths:
+    - '/var/lib/docker/containers/*/*.log'
+  processors:
+    - add_docker_metadata:
+        host: "unix:///var/run/docker.sock"
+    - decode_json_fields:
+        fields: ["message"]
+        target: ""
+        overwrite_keys: true
+    - add_fields:
+        target: ""
+        fields:
+          environment: "${ENVIRONMENT:production}"
+          cluster: "${CLUSTER_NAME:main}"
+          region: "${AWS_REGION:us-east-1}"
+
+- type: log
+  paths:
+    - /var/log/cliper/*.log
+    - /var/log/nginx/*.log
+    - /var/log/postgresql/*.log
+    - /var/log/redis/*.log
+  fields:
+    logtype: application
+  fields_under_root: true
+  multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+  multiline.negate: true
+  multiline.match: after
+
+- type: log
+  paths:
+    - /var/log/syslog
+    - /var/log/auth.log
+    - /var/log/kern.log
+  fields:
+    logtype: system
+  fields_under_root: true
+
+- type: log
+  paths:
+    - /var/log/audit/audit.log
+  fields:
+    logtype: security
+  fields_under_root: true
+
+# Kubernetes logs (if running on K8s)
+- type: kubernetes
+  node: ${NODE_NAME}
+  hints.enabled: true
+  hints.default_config:
+    type: container
+    paths:
+      - /var/log/containers/*${data.kubernetes.container.id}.log
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+      hints.default_config:
+        type: container
+        paths:
+          - /var/lib/docker/containers/${data.docker.container.id}/*.log
+      templates:
+        - condition:
+            contains:
+              docker.container.image: cliper
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+              processors:
+                - add_docker_metadata: ~
+                - decode_json_fields:
+                    fields: ["message"]
+                    target: ""
+                    overwrite_keys: true
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+  - timestamp:
+      field: json.timestamp
+      layouts:
+        - '2006-01-02T15:04:05.000Z'
+        - '2006-01-02T15:04:05Z'
+      test:
+        - '2019-06-22T16:33:51.000Z'
+  - drop_fields:
+      fields: ["agent", "ecs", "host.architecture", "host.os.family"]
+      ignore_missing: true
+  - rename:
+      fields:
+        - from: "json.level"
+          to: "log_level"
+        - from: "json.logger"
+          to: "logger_name"
+        - from: "json.msg"
+          to: "log_message"
+        - from: "json.request_id"
+          to: "request_id"
+        - from: "json.user_id"
+          to: "user_id"
+        - from: "json.trace_id"
+          to: "trace_id"
+        - from: "json.span_id"
+          to: "span_id"
+      ignore_missing: true
+  - script:
+      lang: javascript
+      source: >
+        function process(event) {
+          var message = event.Get("message");
+          if (typeof message === "string") {
+            // Remove sensitive information
+            message = message.replace(/password=[^\s]+/gi, "password=***");
+            message = message.replace(/token=[^\s]+/gi, "token=***");
+            message = message.replace(/key=[^\s]+/gi, "key=***");
+            message = message.replace(/secret=[^\s]+/gi, "secret=***");
+            event.Put("message", message);
+          }
+          
+          // Add service name based on container
+          var containerName = event.Get("docker.container.name");
+          if (containerName) {
+            if (containerName.includes("backend")) {
+              event.Put("service", "backend");
+            } else if (containerName.includes("frontend")) {
+              event.Put("service", "frontend");
+            } else if (containerName.includes("celery")) {
+              event.Put("service", "celery");
+            } else if (containerName.includes("nginx")) {
+              event.Put("service", "nginx");
+            } else if (containerName.includes("postgres")) {
+              event.Put("service", "postgres");
+            } else if (containerName.includes("redis")) {
+              event.Put("service", "redis");
+            }
+          }
+          
+          // Add alert flags
+          var logLevel = event.Get("log_level");
+          if (logLevel === "ERROR" || logLevel === "CRITICAL" || logLevel === "error" || logLevel === "critical") {
+            event.Put("alert_required", true);
+          }
+          
+          return event;
+        }
+
+output.logstash:
+  hosts: ["${LOGSTASH_HOST:logstash:5044}"]
+  compression_level: 3
+  bulk_max_size: 2048
+  template.name: "cliper"
+  template.pattern: "cliper-*"
+  template.settings:
+    index.number_of_shards: 3
+    index.number_of_replicas: 1
+
+# Alternative output to Elasticsearch (if not using Logstash)
+# output.elasticsearch:
+#   hosts: ["${ELASTICSEARCH_HOST:elasticsearch:9200}"]
+#   index: "cliper-logs-%{+yyyy.MM.dd}"
+#   template.name: "cliper"
+#   template.pattern: "cliper-*"
+#   template.settings:
+#     index.number_of_shards: 3
+#     index.number_of_replicas: 1
+
+setup.template.settings:
+  index.number_of_shards: 3
+  index.number_of_replicas: 1
+  index.refresh_interval: "5s"
+  index.codec: "best_compression"
+
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "cliper-logs"
+setup.ilm.pattern: "{now/d}-000001"
+setup.ilm.policy: "cliper-policy"
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+monitoring.enabled: true
+monitoring.elasticsearch:
+  hosts: ["${ELASTICSEARCH_HOST:elasticsearch:9200}"]
+
+http.enabled: true
+http.host: 0.0.0.0
+http.port: 5066
+
+# Security settings
+ssl.verification_mode: certificate
+ssl.certificate_authorities: ["/etc/ssl/certs/ca-certificates.crt"]
+
+# Performance tuning
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
+
+# Retry settings
+output.logstash:
+  max_retries: 3
+  backoff.init: 1s
+  backoff.max: 60s
+
+# Field filtering
+fields:
+  environment: "${ENVIRONMENT:production}"
+  datacenter: "${DATACENTER:main}"
+  version: "${APP_VERSION:latest}"
+
+fields_under_root: true
+
+# Custom tags
+tags: ["cliper", "production", "logs"]
+
+# Ignore older files
+ignore_older: 24h
+
+# Close files after idle
+close_inactive: 5m
+
+# Scan frequency
+scan_frequency: 10s
+
+# Harvester buffer size
+harvester_buffer_size: 16384
+
+# Max bytes per message
+max_bytes: 10

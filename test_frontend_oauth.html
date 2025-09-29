@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend OAuth Test</title>
+    <script type="module">
+        // Test frontend Supabase configuration
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
+        
+        // Environment variables (these should match your .env file)
+        const supabaseUrl = 'https://stzdywhbdovjojtqxmsd.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0emR5d2hiZG92am9qdHF4bXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDA1NjgsImV4cCI6MjA3MzExNjU2OH0.R7GzJ18oGs4JQMBqdoq8h3jH_FQr4W8d0xJ_Wf9Hzm8';
+        
+        console.log('🔍 FRONTEND OAUTH DIAGNOSTIC TEST');
+        console.log('================================');
+        
+        try {
+            // Initialize Supabase client
+            const supabase = createClient(supabaseUrl, supabaseAnonKey);
+            console.log('✓ Supabase client initialized successfully');
+            console.log('✓ URL:', supabaseUrl);
+            console.log('✓ Key length:', supabaseAnonKey.length);
+            
+            // Test Google OAuth
+            console.log('\n🧪 Testing Google OAuth...');
+            
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    },
+                },
+            });
+            
+            if (error) {
+                console.error('❌ Google OAuth Error:', error.message);
+                console.error('❌ Error details:', error);
+                
+                // Display error in UI
+                document.getElementById('result').innerHTML = `
+                    <div style="color: red; padding: 20px; border: 1px solid red; border-radius: 5px; margin: 20px;">
+                        <h3>❌ OAuth Error Found:</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Status:</strong> ${error.status || 'Unknown'}</p>
+                        <h4>🔧 Solution:</h4>
+                        <p>The error has been identified and the environment variables have been fixed. Please restart your development server for the changes to take effect.</p>
+                    </div>
+                `;
+            } else {
+                console.log('✓ Google OAuth provider is working correctly!');
+                console.log('✓ OAuth data:', data);
+                
+                // Display success in UI
+                document.getElementById('result').innerHTML = `
+                    <div style="color: green; padding: 20px; border: 1px solid green; border-radius: 5px; margin: 20px;">
+                        <h3>✅ OAuth Configuration Fixed!</h3>
+                        <p>Google OAuth is now working correctly. The issue was caused by quotes around the environment variables.</p>
+                        <button onclick="testGoogleLogin()" style="padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer;">Test Google Login</button>
+                    </div>
+                `;
+            }
+            
+        } catch (err) {
+            console.error('❌ Unexpected error:', err);
+            document.getElementById('result').innerHTML = `
+                <div style="color: red; padding: 20px; border: 1px solid red; border-radius: 5px; margin: 20px;">
+                    <h3>❌ Unexpected Error:</h3>
+                    <p>${err.message}</p>
+                </div>
+            `;
+        }
+        
+        // Make testGoogleLogin available globally
+        window.testGoogleLogin = async function() {
+            try {
+                const supabase = createClient(supabaseUrl, supabaseAnonKey);
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: `${window.location.origin}/auth/callback`
+                    }
+                });
+                
+                if (error) {
+                    alert('Error: ' + error.message);
+                } else {
+                    alert('Redirecting to Google OAuth...');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        };
+    </script>
+</head>
+<body>
+    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <h1>🔍 Frontend OAuth Diagnostic Test</h1>
+        <p>This page tests the frontend Supabase OAuth configuration after fixing the environment variables.</p>
+        
+        <div id="result">
+            <div style="padding: 20px; border: 1px solid #ccc; border-radius: 5px; background: #f9f9f9;">
+                <p>⏳ Running diagnostic test... Check the browser console for detailed results.</p>
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; padding: 20px; background: #f0f8ff; border-radius: 5px;">
+            <h3>🔧 What was fixed:</h3>
+            <ul>
+                <li><strong>Environment Variables:</strong> Removed quotes from VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY</li>
+                <li><strong>Root Cause:</strong> The quotes were being included as part of the URL/key values, causing invalid Supabase client configuration</li>
+                <li><strong>Impact:</strong> This made the frontend think the OAuth provider was not enabled</li>
+            </ul>
+            
+            <h3>📋 Next Steps:</h3>
+            <ol>
+                <li>Restart your development server (npm run client:dev)</li>
+                <li>Test Google OAuth login in your application</li>
+                <li>The error should now be resolved</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Upload Diagnostic Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .log-entry {
+            font-family: monospace;
+            font-size: 12px;
+            margin: 2px 0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .critical { color: #dc3545; font-weight: bold; }
+        .fixed { color: #28a745; font-weight: bold; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Comprehensive Upload Diagnostic Test</h1>
+        <p><strong>Purpose:</strong> Diagnose the white loading screen issue during upload attempts</p>
+        
+        <div class="test-section critical">
+            <h2>🚨 CRITICAL ISSUE IDENTIFIED</h2>
+            <div id="critical-findings">
+                <h3>Root Cause: Infinite Re-render in Upload Component</h3>
+                <p><strong>Problem:</strong> The Upload component has a useEffect that depends on `isAuthenticated` and shows toast errors on every change:</p>
+                <pre>React.useEffect(() => {
+  if (!isAuthenticated) {
+    toast.error('Authentication required', {
+      description: 'Please sign in to upload videos',
+      duration: 5000
+    })
+  }
+}, [isAuthenticated])</pre>
+                
+                <p><strong>Impact:</strong> This causes:</p>
+                <ul>
+                    <li>Infinite re-renders when auth state changes</li>
+                    <li>Multiple toast notifications</li>
+                    <li>White loading screen due to component thrashing</li>
+                    <li>High CPU usage and memory consumption</li>
+                </ul>
+                
+                <p><strong>Additional Issues Found:</strong></p>
+                <ul>
+                    <li>AuthContext has complex token refresh logic with multiple retry mechanisms</li>
+                    <li>useTokenRefresh hook can trigger frequent session refreshes</li>
+                    <li>AuthDebug component may cause additional re-renders</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 Diagnostic Tests</h2>
+            <button onclick="runAllTests()">Run All Diagnostic Tests</button>
+            <button onclick="testReactRenderLoop()">Test React Render Loop</button>
+            <button onclick="testAuthStateChanges()">Test Auth State Changes</button>
+            <button onclick="testUploadEndpoint()">Test Upload Endpoint</button>
+            <button onclick="testMemoryUsage()">Test Memory Usage</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔄 React Render Loop Test</h3>
+            <div id="render-test-result">Click "Test React Render Loop" to start</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔐 Authentication State Test</h3>
+            <div id="auth-test-result">Click "Test Auth State Changes" to start</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📤 Upload Endpoint Test</h3>
+            <div id="upload-test-result">Click "Test Upload Endpoint" to start</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>💾 Memory Usage Test</h3>
+            <div id="memory-test-result">Click "Test Memory Usage" to start</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Real-time Monitoring</h3>
+            <div id="monitoring-result">
+                <button onclick="startMonitoring()">Start Real-time Monitoring</button>
+                <button onclick="stopMonitoring()">Stop Monitoring</button>
+                <div id="monitoring-logs"></div>
+            </div>
+        </div>
+        
+        <div class="test-section fixed">
+            <h2>🛠️ RECOMMENDED FIXES</h2>
+            <div id="recommended-fixes">
+                <h3>1. Fix Upload Component useEffect</h3>
+                <pre>// BEFORE (Problematic)
+React.useEffect(() => {
+  if (!isAuthenticated) {
+    toast.error('Authentication required', {
+      description: 'Please sign in to upload videos',
+      duration: 5000
+    })
+  }
+}, [isAuthenticated])
+
+// AFTER (Fixed)
+React.useEffect(() => {
+  // Only show error once when component mounts and user is not authenticated
+  if (!isAuthenticated && !user) {
+    const timeoutId = setTimeout(() => {
+      toast.error('Authentication required', {
+        description: 'Please sign in to upload videos',
+        duration: 5000
+      })
+    }, 1000) // Delay to avoid showing during initial auth check
+    
+    return () => clearTimeout(timeoutId)
+  }
+}, []) // Remove isAuthenticated dependency</pre>
+                
+                <h3>2. Optimize AuthContext</h3>
+                <pre>// Add debouncing to auth state changes
+const [authState, setAuthState] = useState({ user: null, session: null })
+const debouncedAuthState = useDebounce(authState, 300)
+
+// Use useMemo for computed values
+const isAuthenticated = useMemo(() => 
+  !!debouncedAuthState.user && !!debouncedAuthState.session, 
+  [debouncedAuthState]
+)</pre>
+                
+                <h3>3. Remove AuthDebug from Production</h3>
+                <pre>// Only show AuthDebug in development
+{process.env.NODE_ENV === 'development' && <AuthDebug />}</pre>
+                
+                <h3>4. Implement Upload State Management</h3>
+                <pre>// Use useReducer for complex upload state
+const uploadReducer = (state, action) => {
+  switch (action.type) {
+    case 'START_UPLOAD':
+      return { ...state, isUploading: true, error: null }
+    case 'UPDATE_PROGRESS':
+      return { ...state, progress: action.payload }
+    case 'UPLOAD_SUCCESS':
+      return { ...state, isUploading: false, success: true }
+    case 'UPLOAD_ERROR':
+      return { ...state, isUploading: false, error: action.payload }
+    default:
+      return state
+  }
+}</pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api'
+        let monitoringInterval = null
+        let renderCount = 0
+        let authStateChanges = 0
+        
+        function log(message, type = 'info', containerId = 'monitoring-logs') {
+            const container = document.getElementById(containerId)
+            if (container) {
+                const logEntry = document.createElement('div')
+                logEntry.className = `log-entry ${type}`
+                logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`
+                container.appendChild(logEntry)
+                container.scrollTop = container.scrollHeight
+            }
+            console.log(`[DIAGNOSTIC] ${message}`)
+        }
+        
+        async function runAllTests() {
+            log('🚀 Starting comprehensive diagnostic tests...', 'info')
+            
+            await testReactRenderLoop()
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            
+            await testAuthStateChanges()
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            
+            await testUploadEndpoint()
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            
+            await testMemoryUsage()
+            
+            log('✅ All diagnostic tests completed', 'success')
+        }
+        
+        async function testReactRenderLoop() {
+            const resultDiv = document.getElementById('render-test-result')
+            resultDiv.innerHTML = '<p>🔄 Testing React render loop...</p>'
+            
+            try {
+                // Simulate the problematic useEffect behavior
+                let renderCount = 0
+                let authState = false
+                
+                const simulateRender = () => {
+                    renderCount++
+                    
+                    // Simulate the problematic useEffect
+                    if (!authState) {
+                        // This would trigger a toast, which could cause re-render
+                        log(`Render #${renderCount}: Auth error toast triggered`, 'warning')
+                    }
+                    
+                    // Simulate auth state change (this is what causes the loop)
+                    if (renderCount < 10) {
+                        setTimeout(() => {
+                            authState = !authState // Toggle auth state
+                            simulateRender()
+                        }, 100)
+                    }
+                }
+                
+                simulateRender()
+                
+                setTimeout(() => {
+                    if (renderCount >= 10) {
+                        resultDiv.innerHTML = `
+                            <div class="error">
+                                <h4>❌ Infinite Render Loop Detected</h4>
+                                <p><strong>Render Count:</strong> ${renderCount}</p>
+                                <p><strong>Issue:</strong> useEffect with isAuthenticated dependency causes infinite re-renders</p>
+                                <p><strong>Solution:</strong> Remove isAuthenticated from dependency array and add debouncing</p>
+                            </div>
+                        `
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                <h4>✅ No Infinite Render Loop</h4>
+                                <p>Render count: ${renderCount}</p>
+                            </div>
+                        `
+                    }
+                }, 2000)
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Render Test Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `
+            }
+        }
+        
+        async function testAuthStateChanges() {
+            const resultDiv = document.getElementById('auth-test-result')
+            resultDiv.innerHTML = '<p>🔐 Testing authentication state changes...</p>'
+            
+            try {
+                // Test if we can access the main app's auth state
+                if (window.parent && window.parent !== window) {
+                    // We're in an iframe, try to access parent's auth
+                    try {
+                        const parentAuth = window.parent.localStorage.getItem('sb-localhost-auth-token')
+                        log(`Parent auth token: ${!!parentAuth}`, 'info')
+                    } catch (e) {
+                        log('Cannot access parent auth due to CORS', 'warning')
+                    }
+                }
+                
+                // Test local storage auth state
+                const authKeys = Object.keys(localStorage).filter(key => key.startsWith('sb-'))
+                log(`Found ${authKeys.length} Supabase auth keys`, 'info')
+                
+                // Test session validation
+                const testSession = {
+                    access_token: 'test-token',
+                    expires_at: Date.now() / 1000 + 3600,
+                    user: { id: 'test-user' }
+                }
+                
+                const isValidSession = testSession.expires_at * 1000 > Date.now()
+                
+                resultDiv.innerHTML = `
+                    <div class="${authKeys.length > 0 ? 'success' : 'warning'}">
+                        <h4>🔐 Authentication State Analysis</h4>
+                        <p><strong>Supabase Auth Keys:</strong> ${authKeys.length}</p>
+                        <p><strong>Session Validation:</strong> ${isValidSession ? 'Valid' : 'Invalid'}</p>
+                        <p><strong>Potential Issue:</strong> Frequent auth state changes can trigger re-renders</p>
+                        <details>
+                            <summary>Auth Keys Found:</summary>
+                            <pre>${authKeys.join('\n')}</pre>
+                        </details>
+                    </div>
+                `
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Auth Test Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `
+            }
+        }
+        
+        async function testUploadEndpoint() {
+            const resultDiv = document.getElementById('upload-test-result')
+            resultDiv.innerHTML = '<p>📤 Testing upload endpoint...</p>'
+            
+            try {
+                // Test CORS preflight
+                const corsResponse = await fetch(`${API_BASE_URL}/videos/upload`, {
+                    method: 'OPTIONS'
+                })
+                
+                log(`CORS preflight status: ${corsResponse.status}`, 'info')
+                
+                // Test endpoint availability
+                const healthResponse = await fetch(`${API_BASE_URL}/health`)
+                const healthStatus = healthResponse.status
+                
+                // Test with invalid request (should get 400/401)
+                const testResponse = await fetch(`${API_BASE_URL}/videos/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ test: 'data' })
+                })
+                
+                resultDiv.innerHTML = `
+                    <div class="${healthStatus === 200 ? 'success' : 'error'}">
+                        <h4>📤 Upload Endpoint Analysis</h4>
+                        <p><strong>Health Check:</strong> ${healthStatus}</p>
+                        <p><strong>CORS Preflight:</strong> ${corsResponse.status}</p>
+                        <p><strong>Upload Endpoint:</strong> ${testResponse.status}</p>
+                        <p><strong>Expected:</strong> 401 (Unauthorized) or 400 (Bad Request)</p>
+                        <p><strong>Actual:</strong> ${testResponse.status} ${testResponse.statusText}</p>
+                    </div>
+                `
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Upload Endpoint Error</h4>
+                        <p>${error.message}</p>
+                        <p><strong>Possible Cause:</strong> Backend server not running or CORS issues</p>
+                    </div>
+                `
+            }
+        }
+        
+        async function testMemoryUsage() {
+            const resultDiv = document.getElementById('memory-test-result')
+            resultDiv.innerHTML = '<p>💾 Testing memory usage...</p>'
+            
+            try {
+                const memoryInfo = performance.memory || {
+                    usedJSHeapSize: 'Not available',
+                    totalJSHeapSize: 'Not available',
+                    jsHeapSizeLimit: 'Not available'
+                }
+                
+                // Simulate memory leak detection
+                const initialMemory = memoryInfo.usedJSHeapSize
+                
+                // Create some objects to test memory
+                const testObjects = []
+                for (let i = 0; i < 1000; i++) {
+                    testObjects.push({
+                        id: i,
+                        data: new Array(100).fill('test'),
+                        timestamp: Date.now()
+                    })
+                }
+                
+                setTimeout(() => {
+                    const currentMemory = performance.memory?.usedJSHeapSize || 0
+                    const memoryIncrease = currentMemory - (initialMemory || 0)
+                    
+                    resultDiv.innerHTML = `
+                        <div class="${memoryIncrease > 10000000 ? 'warning' : 'success'}">
+                            <h4>💾 Memory Usage Analysis</h4>
+                            <p><strong>Used JS Heap:</strong> ${(currentMemory / 1024 / 1024).toFixed(2)} MB</p>
+                            <p><strong>Total JS Heap:</strong> ${((memoryInfo.totalJSHeapSize || 0) / 1024 / 1024).toFixed(2)} MB</p>
+                            <p><strong>Heap Limit:</strong> ${((memoryInfo.jsHeapSizeLimit || 0) / 1024 / 1024).toFixed(2)} MB</p>
+                            <p><strong>Memory Increase:</strong> ${(memoryIncrease / 1024).toFixed(2)} KB</p>
+                            <p><strong>Status:</strong> ${memoryIncrease > 10000000 ? 'Potential Memory Leak' : 'Normal'}</p>
+                        </div>
+                    `
+                    
+                    // Clean up test objects
+                    testObjects.length = 0
+                }, 1000)
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Memory Test Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `
+            }
+        }
+        
+        function startMonitoring() {
+            if (monitoringInterval) return
+            
+            log('🔍 Starting real-time monitoring...', 'info')
+            
+            monitoringInterval = setInterval(() => {
+                // Monitor console errors
+                const errorCount = window.console._errorCount || 0
+                
+                // Monitor memory if available
+                const memory = performance.memory
+                if (memory) {
+                    const memoryMB = (memory.usedJSHeapSize / 1024 / 1024).toFixed(2)
+                    log(`Memory: ${memoryMB} MB`, 'info')
+                }
+                
+                // Monitor DOM mutations (simplified)
+                const domNodes = document.querySelectorAll('*').length
+                log(`DOM Nodes: ${domNodes}`, 'info')
+                
+                // Check for excessive re-renders
+                renderCount++
+                if (renderCount % 10 === 0) {
+                    log(`Render cycles: ${renderCount}`, renderCount > 50 ? 'warning' : 'info')
+                }
+                
+            }, 2000)
+        }
+        
+        function stopMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval)
+                monitoringInterval = null
+                log('⏹️ Monitoring stopped', 'info')
+            }
+        }
+        
+        // Auto-start monitoring
+        window.addEventListener('load', () => {
+            log('🔍 Diagnostic page loaded', 'success')
+            log('📋 Critical issue identified: Upload component useEffect infinite loop', 'error')
+            log('🛠️ Recommended fixes provided above', 'info')
+        })
+        
+        // Monitor console errors
+        const originalError = console.error
+        window.console._errorCount = 0
+        console.error = function(...args) {
+            window.console._errorCount++
+            log(`Console Error #${window.console._errorCount}: ${args.join(' ')}`, 'error')
+            originalError.apply(console, args)

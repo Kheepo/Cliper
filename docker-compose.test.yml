@@ -1,0 +1,132 @@
+version: '3.8'
+
+# Test environment overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.test.yml up
+
+services:
+  app:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=test
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - SUPABASE_URL=http://supabase:54321
+      - SUPABASE_ANON_KEY=test-anon-key
+      - SUPABASE_SERVICE_ROLE_KEY=test-service-role-key
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=test-openai-key
+      - ANTHROPIC_API_KEY=test-anthropic-key
+      - GOOGLE_API_KEY=test-google-key
+      - UPLOAD_PATH=/app/test_uploads
+      - TEMP_PATH=/app/test_temp
+      - OUTPUT_PATH=/app/test_output
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+      - MAX_UPLOAD_SIZE=104857600  # 100MB for testing
+      - MAX_CLIP_DURATION=300      # 5 minutes for testing
+      - ENABLE_RATE_LIMITING=false
+      - ENABLE_MONITORING=false
+      - ENABLE_WEBSOCKETS=true
+      - WEBSOCKET_PING_INTERVAL=10
+      - WEBSOCKET_PING_TIMEOUT=5
+    volumes:
+      - ./test_uploads:/app/test_uploads
+      - ./test_temp:/app/test_temp
+      - ./test_output:/app/test_output
+      - ./tests:/app/tests
+      - ./logs:/app/logs
+    command: >
+      sh -c "
+        python -m pytest tests/ -v --tb=short --maxfail=5 &&
+        python run_tests.py --all --verbose
+      "
+    depends_on:
+      - redis
+      - supabase
+    networks:
+      - test-network
+
+  worker:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=test
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - SUPABASE_URL=http://supabase:54321
+      - SUPABASE_ANON_KEY=test-anon-key
+      - SUPABASE_SERVICE_ROLE_KEY=test-service-role-key
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=test-openai-key
+      - ANTHROPIC_API_KEY=test-anthropic-key
+      - GOOGLE_API_KEY=test-google-key
+      - UPLOAD_PATH=/app/test_uploads
+      - TEMP_PATH=/app/test_temp
+      - OUTPUT_PATH=/app/test_output
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+      - MAX_UPLOAD_SIZE=104857600
+      - MAX_CLIP_DURATION=300
+      - WORKER_CONCURRENCY=2  # Reduced for testing
+      - WORKER_MAX_TASKS_PER_CHILD=10
+    volumes:
+      - ./test_uploads:/app/test_uploads
+      - ./test_temp:/app/test_temp
+      - ./test_output:/app/test_output
+      - ./logs:/app/logs
+    command: >
+      celery -A api.celery_app worker
+      --loglevel=debug
+      --concurrency=2
+      --max-tasks-per-child=10
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
+    depends_on:
+      - redis
+      - supabase
+    networks:
+      - test-network
+
+  beat:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=test
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    command: >
+      celery -A api.celery_app beat
+      --loglevel=debug
+      --schedule=/tmp/celerybeat-schedule
+      --pidfile=/tmp/celerybeat.pid
+    depends_on:
+      - redis
+    networks:
+      - test-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3

@@ -1,0 +1,338 @@
+# Worker-specific requirements for Video Processing Workers
+# Optimized for video processing, AI, and distributed computing
+
+# Core Celery with all extensions
+celery[redis,auth,msgpack,yaml]==5.3.4
+kombu==5.3.4
+billiard==4.2.0
+vine==5.1.0
+
+# Advanced video processing
+ffmpeg-python==0.2.0
+opencv-python-headless==4.8.1.78
+imageio==2.31.6
+imageio-ffmpeg==0.4.9
+moviepy==1.0.3
+
+# GPU-accelerated video processing
+nvidia-ml-py==12.535.133  # NVIDIA GPU monitoring
+pycuda==2023.1  # CUDA support
+
+# Advanced audio processing
+librosa==0.10.1
+soundfile==0.12.1
+audioread==3.0.1
+resampy==0.4.2
+numba==0.58.1  # JIT compilation for audio processing
+
+# AI and Machine Learning (CPU optimized)
+torch==2.1.1+cpu --index-url https://download.pytorch.org/whl/cpu
+torchaudio==2.1.1+cpu --index-url https://download.pytorch.org/whl/cpu
+transformers==4.35.2
+openai==1.3.7
+whisper==1.1.10
+
+# Advanced numpy and scientific computing
+numpy==1.25.2
+scipy==1.11.4
+scikit-learn==1.3.2
+pandas==2.1.3
+
+# Memory optimization for workers
+memory-profiler==0.61.0
+psutil==5.9.6
+objgraph==3.6.0
+tracemalloc==1.0.0
+
+# Advanced caching for workers
+redis[hiredis]==5.0.1
+hiredis==2.2.3
+diskcache==5.6.3
+
+# Worker monitoring and profiling
+py-spy==0.3.14
+line-profiler==4.1.1
+prometheus-client==0.19.0
+
+# Advanced logging for workers
+loguru==0.7.2
+structlog==23.2.0
+colorlog==6.8.0
+
+# Error tracking and debugging
+sentry-sdk==1.38.0
+icecream==2.1.3
+
+# Advanced file handling
+aiofiles==23.2.1
+pathlibutil==0.2.0
+watchdog==3.0.0
+
+# Compression and optimization
+lz4==4.3.2
+zstandard==0.22.0
+compression==1.0.0
+
+# Advanced serialization
+msgpack==1.0.7
+orjson==3.9.10
+ujson==5.8.0
+
+# Worker utilities
+click==8.1.7
+rich==13.7.0
+typer==0.9.0
+
+# Advanced concurrency
+gevent==23.9.1
+anyio==4.1.0
+
+# Worker configuration
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Advanced retry and error handling
+tenacity==8.2.3
+backoff==2.2.1
+
+# Worker health checks
+requests==2.31.0
+httpx==0.25.2
+
+# Advanced data structures
+sortedcontainers==2.4.0
+more-itertools==10.1.0
+blist==1.3.6
+
+# Worker process management
+supervisor==4.2.5
+
+# Advanced hashing and checksums
+xxhash==3.4.1
+hashlib==1.0.0
+
+# Worker datetime handling
+pendulum==2.1.2
+pytz==2023.3
+
+# Advanced string processing
+fuzzywuzzy==0.18.0
+python-levenshtein==0.23.0
+
+# Worker validation
+validators==0.22.0
+cerberus==1.3.5
+
+# Advanced networking for workers
+requests-toolbelt==1.0.0
+httpcore==1.0.2
+
+# Worker image processing
+pillow==10.1.0
+wand==0.6.13
+
+# Advanced text processing
+nltk==3.8.1
+spacy==3.7.2
+
+# Worker data export
+openpyxl==3.1.2
+
+# Advanced PDF handling
+PyPDF2==3.0.1
+
+# Worker audio metadata
+mutagen==1.47.0
+
+# Advanced markup processing
+markdown==3.5.1
+
+# Worker internationalization
+babel==2.13.1
+
+# Advanced queue management
+rq==1.15.1
+
+# Worker SSL/TLS
+pyopenssl==23.3.0
+
+# Advanced async utilities
+uvloop==0.19.0
+
+# Worker template engine
+jinja2==3.1.2
+
+# Advanced CLI utilities
+click-plugins==1.1.1
+
+# Worker metrics collection
+statsd==4.0.1
+
+# Advanced configuration
+configurator==3.1.0
+
+# Worker optimization
+cython==3.0.6
+
+# Advanced debugging
+pdb-clone==1.10.6
+
+# Worker background tasks
+apscheduler==3.10.4
+
+# Advanced file watching
+watchfiles==0.21.0
+
+# Worker WebSocket support
+websockets==12.0
+
+# Advanced data validation
+schema==0.7.5
+
+# Worker caching strategies
+dogpile.cache==1.2.2
+
+# Advanced worker management
+celery-types==0.18.0
+
+# GPU memory management
+gpustat==1.1.1
+nvidia-ml-py3==7.352.0
+
+# Advanced video codecs
+videocodecs==1.0.0
+
+# Worker security
+cryptography==41.0.7
+
+# Advanced compression algorithms
+brotli==1.1.0
+
+# Worker database connections
+psycopg2-binary==2.9.9
+
+# Advanced mathematical operations
+sympy==1.12
+
+# Worker optimization libraries
+optuna==3.4.0
+
+# Advanced signal processing
+scipy-signal==1.0.0
+
+# Worker machine learning utilities
+joblib==1.3.2
+
+# Advanced feature extraction
+sklearn-features==1.0.0
+
+# Worker deep learning utilities
+torchvision==0.16.1+cpu --index-url https://download.pytorch.org/whl/cpu
+
+# Advanced audio analysis
+essentia==2.1b6.dev1110
+
+# Worker video analysis
+video-analysis==1.0.0
+
+# Advanced content analysis
+content-analyzer==1.0.0
+
+# Worker AI utilities
+ai-utils==1.0.0
+
+# Advanced transcription
+speech-recognition==3.10.0
+
+# Worker natural language processing
+spacy-transformers==1.3.4
+
+# Advanced sentiment analysis
+vadersentiment==3.3.2
+
+# Worker topic modeling
+gensim==4.3.2
+
+# Advanced clustering
+scikit-learn-extra==0.3.0
+
+# Worker dimensionality reduction
+umap-learn==0.5.4
+
+# Advanced visualization (for debugging)
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# Worker data preprocessing
+scikit-image==0.22.0
+
+# Advanced feature engineering
+feature-engine==1.6.2
+
+# Worker model serving
+onnx==1.15.0
+onnxruntime==1.16.3
+
+# Advanced model optimization
+optimum==1.14.1
+
+# Worker distributed computing
+dask==2023.11.0
+
+# Advanced parallel processing
+joblib-spark==0.5.0
+
+# Worker cloud storage
+boto3==1.34.0
+
+# Advanced file formats
+h5py==3.10.0
+
+# Worker data streaming
+kafka-python==2.0.2
+
+# Advanced message queuing
+pika==1.3.2
+
+# Worker event streaming
+eventsourcing==9.2.20
+
+# Advanced workflow management
+airflow-providers==1.0.0
+
+# Worker container utilities
+docker==6.1.3
+
+# Advanced monitoring
+prometheus-client==0.19.0
+
+# Worker alerting
+alertmanager-client==1.0.0
+
+# Advanced tracing
+opentelemetry-api==1.21.0
+
+# Worker service discovery
+consul==1.1.0
+
+# Advanced load balancing
+haproxy-stats==2.0.0
+
+# Worker circuit breaker
+pybreaker==1.0.2
+
+# Advanced rate limiting
+ratelimit==2.2.1
+
+# Worker bulkhead pattern
+bulkhead==1.0.0
+
+# Advanced timeout handling
+timeout-decorator==0.5.0
+
+# Worker graceful shutdown
+graceful==1.0.0
+
+# Advanced health monitoring
+healthcheck==1.3.3

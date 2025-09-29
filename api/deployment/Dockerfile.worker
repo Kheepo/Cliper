@@ -1,0 +1,425 @@
+# Multi-stage build for production-ready Celery workers
+FROM python:3.11-slim as base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies for video processing
+RUN apt-get update && apt-get install -y \
+    # Essential build tools
+    build-essential \
+    pkg-config \
+    # FFmpeg and multimedia libraries (latest version)
+    ffmpeg \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libavfilter-dev \
+    libavdevice-dev \
+    libpostproc-dev \
+    # Audio processing libraries
+    libfdk-aac-dev \
+    libmp3lame-dev \
+    libopus-dev \
+    libvorbis-dev \
+    libtheora-dev \
+    libspeex-dev \
+    # Video codecs and encoders
+    libx264-dev \
+    libx265-dev \
+    libvpx-dev \
+    libwebp-dev \
+    libaom-dev \
+    # GPU acceleration libraries
+    libnvidia-encode-470 \
+    libnvidia-decode-470 \
+    # Intel Quick Sync Video
+    intel-media-va-driver-non-free \
+    # System utilities
+    curl \
+    wget \
+    git \
+    unzip \
+    # Process monitoring and debugging
+    htop \
+    strace \
+    gdb \
+    # Network utilities
+    netcat-openbsd \
+    # Memory profiling
+    valgrind \
+    # Cleanup
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies in a separate stage
+FROM base as python-deps
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy requirements
+COPY requirements.txt /tmp/requirements.txt
+COPY requirements-worker.txt /tmp/requirements-worker.txt
+
+# Install Python packages with optimizations
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install -r /tmp/requirements.txt && \
+    pip install -r /tmp/requirements-worker.txt && \
+    # Install additional worker-specific packages
+    pip install \
+        # Memory profiling
+        memory-profiler \
+        # Performance monitoring
+        py-spy \
+        # Advanced video processing
+        opencv-python-headless \
+        # Audio analysis
+        librosa \
+        # Machine learning optimizations
+        torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Production stage
+FROM base as production
+
+# Copy virtual environment from python-deps stage
+COPY --from=python-deps /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Create non-root user for security
+RUN groupadd -r worker && useradd -r -g worker worker
+
+# Create application directories with proper permissions
+RUN mkdir -p /app /app/uploads /app/temp /app/output /app/cache /app/logs /app/worker_data && \
+    chown -R worker:worker /app
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY --chown=worker:worker . /app/
+
+# Create worker-specific directories
+RUN mkdir -p \
+    /app/worker_logs \
+    /app/worker_temp \
+    /app/worker_cache \
+    /app/processing_queue \
+    /app/failed_jobs \
+    && chown -R worker:worker /app
+
+# Install additional production tools for workers
+RUN apt-get update && apt-get install -y \
+    # Advanced monitoring
+    iotop \
+    # Network monitoring
+    iftop \
+    # Disk monitoring
+    iotop \
+    # Log management
+    logrotate \
+    # Process management
+    supervisor \
+    # Cleanup
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy worker configuration files
+COPY --chown=worker:worker deployment/worker-supervisord.conf /etc/supervisor/conf.d/worker-supervisord.conf
+COPY --chown=worker:worker deployment/worker-logrotate.conf /etc/logrotate.d/video-worker
+
+# Create worker startup script
+RUN cat > /app/start-worker.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Wait for dependencies
+log "Waiting for Redis..."
+while ! nc -z redis 6379; do
+  sleep 1
+done
+log "Redis is ready!"
+
+log "Waiting for PostgreSQL..."
+while ! nc -z postgres 5432; do
+  sleep 1
+done
+log "PostgreSQL is ready!"
+
+# Set up worker environment
+log "Setting up worker environment..."
+export WORKER_ID="worker-$(hostname)-$$"
+export WORKER_LOG_FILE="/app/worker_logs/${WORKER_ID}.log"
+
+# Create worker log directory
+mkdir -p /app/worker_logs
+
+# Set resource limits
+ulimit -n 65536  # Increase file descriptor limit
+ulimit -u 32768  # Increase process limit
+
+# Set memory limits (if not set by container)
+if [ -z "$MEMORY_LIMIT" ]; then
+    export MEMORY_LIMIT="8G"
+fi
+
+# Configure worker settings based on available resources
+CPU_COUNT=$(nproc)
+MEMORY_GB=$(free -g | awk '/^Mem:/{print $2}')
+
+# Calculate optimal concurrency
+if [ -z "$WORKER_CONCURRENCY" ]; then
+    # Use 1 worker per CPU core, max 8
+    WORKER_CONCURRENCY=$((CPU_COUNT > 8 ? 8 : CPU_COUNT))
+fi
+
+# Calculate prefetch multiplier based on memory
+if [ -z "$WORKER_PREFETCH_MULTIPLIER" ]; then
+    if [ $MEMORY_GB -gt 16 ]; then
+        WORKER_PREFETCH_MULTIPLIER=4
+    elif [ $MEMORY_GB -gt 8 ]; then
+        WORKER_PREFETCH_MULTIPLIER=2
+    else
+        WORKER_PREFETCH_MULTIPLIER=1
+    fi
+fi
+
+# Set max tasks per child based on memory
+if [ -z "$WORKER_MAX_TASKS_PER_CHILD" ]; then
+    if [ $MEMORY_GB -gt 16 ]; then
+        WORKER_MAX_TASKS_PER_CHILD=200
+    elif [ $MEMORY_GB -gt 8 ]; then
+        WORKER_MAX_TASKS_PER_CHILD=100
+    else
+        WORKER_MAX_TASKS_PER_CHILD=50
+    fi
+fi
+
+log "Worker configuration:"
+log "  Worker ID: $WORKER_ID"
+log "  CPU Count: $CPU_COUNT"
+log "  Memory: ${MEMORY_GB}GB"
+log "  Concurrency: $WORKER_CONCURRENCY"
+log "  Prefetch Multiplier: $WORKER_PREFETCH_MULTIPLIER"
+log "  Max Tasks Per Child: $WORKER_MAX_TASKS_PER_CHILD"
+log "  Memory Limit: $MEMORY_LIMIT"
+
+# Start the Celery worker
+log "Starting Celery worker..."
+exec celery -A api.celery_app worker \
+    --loglevel=${CELERY_LOG_LEVEL:-info} \
+    --concurrency=$WORKER_CONCURRENCY \
+    --prefetch-multiplier=$WORKER_PREFETCH_MULTIPLIER \
+    --max-tasks-per-child=$WORKER_MAX_TASKS_PER_CHILD \
+    --queues=${CELERY_QUEUES:-video_processing,clip_processing,transcription,default} \
+    --hostname="${WORKER_ID}@%h" \
+    --logfile="$WORKER_LOG_FILE" \
+    --pidfile="/app/worker_data/${WORKER_ID}.pid" \
+    --statedb="/app/worker_data/${WORKER_ID}.state" \
+    --optimization=fair \
+    --without-gossip \
+    --without-mingle \
+    --without-heartbeat
+EOF
+
+# Create beat startup script
+RUN cat > /app/start-beat.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Wait for dependencies
+log "Waiting for Redis..."
+while ! nc -z redis 6379; do
+  sleep 1
+done
+log "Redis is ready!"
+
+log "Waiting for PostgreSQL..."
+while ! nc -z postgres 5432; do
+  sleep 1
+done
+log "PostgreSQL is ready!"
+
+# Set up beat environment
+log "Setting up Celery Beat..."
+export BEAT_LOG_FILE="/app/worker_logs/celery-beat.log"
+
+# Create beat log directory
+mkdir -p /app/worker_logs
+
+# Start Celery Beat
+log "Starting Celery Beat scheduler..."
+exec celery -A api.celery_app beat \
+    --loglevel=${CELERY_LOG_LEVEL:-info} \
+    --logfile="$BEAT_LOG_FILE" \
+    --pidfile="/app/worker_data/celery-beat.pid" \
+    --schedule="/app/worker_data/celerybeat-schedule" \
+    --scheduler=celery.beat:PersistentScheduler
+EOF
+
+# Create flower startup script
+RUN cat > /app/start-flower.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Wait for dependencies
+log "Waiting for Redis..."
+while ! nc -z redis 6379; do
+  sleep 1
+done
+log "Redis is ready!"
+
+# Start Flower
+log "Starting Flower monitoring..."
+exec celery -A api.celery_app flower \
+    --port=5555 \
+    --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin} \
+    --broker_api=http://guest:guest@redis:15672/api/ \
+    --persistent=true \
+    --db=/app/worker_data/flower.db \
+    --max_tasks=10000 \
+    --enable_events
+EOF
+
+# Make startup scripts executable
+RUN chmod +x /app/start-worker.sh /app/start-beat.sh /app/start-flower.sh
+
+# Create worker health check script
+RUN cat > /app/worker-healthcheck.py << 'EOF'
+#!/usr/bin/env python3
+import sys
+import os
+import psutil
+import redis
+from celery import Celery
+
+def check_worker_health():
+    try:
+        # Check Redis connection
+        r = redis.Redis(host='redis', port=6379, db=0)
+        r.ping()
+        
+        # Check Celery worker status
+        app = Celery('api.celery_app')
+        app.config_from_object('api.celery_app')
+        
+        # Get worker stats
+        inspect = app.control.inspect()
+        stats = inspect.stats()
+        
+        if not stats:
+            print("No active workers found")
+            return False
+        
+        # Check system resources
+        memory = psutil.virtual_memory()
+        if memory.percent > 95:
+            print(f"Critical memory usage: {memory.percent}%")
+            return False
+        
+        cpu_percent = psutil.cpu_percent(interval=1)
+        if cpu_percent > 98:
+            print(f"Critical CPU usage: {cpu_percent}%")
+            return False
+        
+        # Check disk space
+        disk = psutil.disk_usage('/app')
+        if disk.percent > 95:
+            print(f"Critical disk usage: {disk.percent}%")
+            return False
+        
+        print("Worker health check passed")
+        return True
+        
+    except Exception as e:
+        print(f"Worker health check failed: {e}")
+        return False
+
+if __name__ == '__main__':
+    if check_worker_health():
+        sys.exit(0)
+    else:
+        sys.exit(1)
+EOF
+
+# Make health check script executable
+RUN chmod +x /app/worker-healthcheck.py
+
+# Switch to non-root user
+USER worker
+
+# Health check for workers
+HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=3 \
+    CMD python /app/worker-healthcheck.py
+
+# Worker-specific environment variables
+ENV CELERY_WORKER_HIJACK_ROOT_LOGGER=false
+ENV CELERY_WORKER_LOG_COLOR=false
+ENV CELERY_WORKER_REDIRECT_STDOUTS=true
+ENV CELERY_WORKER_REDIRECT_STDOUTS_LEVEL=INFO
+
+# Performance optimizations for workers
+ENV PYTHONOPTIMIZE=2
+ENV CELERY_OPTIMIZATION=fair
+ENV CELERY_DISABLE_RATE_LIMITS=true
+ENV CELERY_TASK_ALWAYS_EAGER=false
+ENV CELERY_TASK_EAGER_PROPAGATES=false
+
+# Memory management
+ENV CELERY_WORKER_MAX_MEMORY_PER_CHILD=2097152  # 2GB in KB
+ENV CELERY_WORKER_DISABLE_RATE_LIMITS=true
+ENV CELERY_TASK_REJECT_ON_WORKER_LOST=true
+
+# Video processing optimizations
+ENV FFMPEG_THREADS=0  # Use all available cores
+ENV OPENCV_NUM_THREADS=0  # Use all available cores
+ENV OMP_NUM_THREADS=0  # Use all available cores
+ENV MKL_NUM_THREADS=0  # Use all available cores
+
+# GPU settings (will be detected automatically)
+ENV CUDA_VISIBLE_DEVICES=all
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+
+# Queue settings
+ENV CELERY_QUEUES=video_processing,clip_processing,transcription,default
+ENV CELERY_ROUTES_TASK_ROUTING_KEY=video_processing
+
+# Monitoring settings
+ENV CELERY_SEND_EVENTS=true
+ENV CELERY_SEND_TASK_EVENTS=true
+ENV CELERY_TRACK_STARTED=true
+
+# Default command (can be overridden)
+CMD ["/app/start-worker.sh"]
+
+# Labels for metadata
+LABEL maintainer="Video Processing Team" \
+      version="2.0.0" \
+      description="Production-ready Celery workers for video processing" \
+      org.opencontainers.image.title="Video Processor Workers" \
+      org.opencontainers.image.description="High-performance Celery workers for video processing tasks" \
+      org.opencontainers.image.version="2.0.0" \
+      org.opencontainers.image.vendor="Video Processing Solutions" \
+      org.opencontainers.image.licenses="MIT"

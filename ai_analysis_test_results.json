@@ -1,0 +1,63 @@
+{
+  "processing_time": 1.17959,
+  "transcription": {
+    "text": "Transcription failed - using fallback",
+    "segments": [],
+    "language": "en",
+    "confidence": 0.0,
+    "word_count": 0,
+    "speaking_rate": 0.0,
+    "keywords": [],
+    "error": "Speech analysis failed: No module named 'jiter.jiter'"
+  },
+  "scenes": [
+    {
+      "start_time": 0.0,
+      "end_time": 15.0,
+      "confidence": 0.5,
+      "data": {
+        "scene_type": "unknown",
+        "brightness": 0.5,
+        "contrast": 0.5,
+        "motion_level": "medium",
+        "dominant_colors": [
+          "#808080"
+        ],
+        "objects_detected": [],
+        "error": "Scene analysis failed: Could not open video file"
+      }
+    }
+  ],
+  "emotions": [],
+  "faces": [],
+  "viral_score": {
+    "overall_score": 34.7,
+    "category_scores": {
+      "engagement": 20,
+      "emotion": 40,
+      "visual_appeal": 75.0,
+      "content_quality": 20.0,
+      "technical_quality": 46.666666666666664,
+      "engagement_hooks": 0
+    },
+    "grade": "D",
+    "recommendations": [
+      "Increase eye contact and facial expressions for better engagement",
+      "Add more positive emotions and energy to boost appeal",
+      "Enhance content with more compelling narrative and keywords",
+      "Improve video quality: higher resolution, better frame rate"
+    ],
+    "optimal_platforms": [
+      "Instagram Reels"
+    ],
+    "hashtag_suggestions": [
+      "#viral",
+      "#trending"
+    ],
+    "best_posting_times": [
+      "9-11 AM",
+      "2-4 PM",
+      "6-8 PM"
+    ]
+  }
+}

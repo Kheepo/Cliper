@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        button { margin: 5px; padding: 10px 15px; }
+    </style>
+</head>
+<body>
+    <h1>Upload Debug Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Backend Connectivity</h3>
+        <button onclick="testBackendHealth()">Test Health Endpoint</button>
+        <div id="health-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Authentication</h3>
+        <button onclick="testAuth()">Test Auth Headers</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test File Upload</h3>
+        <input type="file" id="fileInput" accept="video/*">
+        <button onclick="testUpload()">Test Upload</button>
+        <div id="upload-result" class="result"></div>
+        <div id="upload-progress"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Network Monitoring</h3>
+        <button onclick="startNetworkMonitoring()">Start Monitoring</button>
+        <button onclick="stopNetworkMonitoring()">Stop Monitoring</button>
+        <div id="network-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api';
+        let networkMonitoring = false;
+        let originalFetch = window.fetch;
+        
+        // Override fetch to monitor all requests
+        window.fetch = function(...args) {
+            if (networkMonitoring) {
+                console.log('🌐 Fetch Request:', args[0], args[1]);
+                logToResult('network-result', `📤 Request: ${args[0]}`, 'info');
+            }
+            
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    if (networkMonitoring) {
+                        console.log('✅ Fetch Response:', response.status, response.statusText);
+                        logToResult('network-result', `📥 Response: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                    }
+                    return response;
+                })
+                .catch(error => {
+                    if (networkMonitoring) {
+                        console.error('❌ Fetch Error:', error);
+                        logToResult('network-result', `❌ Error: ${error.message}`, 'error');
+                    }
+                    throw error;
+                });
+        };
+        
+        function logToResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            element.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            element.scrollTop = element.scrollHeight;
+        }
+        
+        async function testBackendHealth() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    logToResult('health-result', `✅ Health check passed: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    logToResult('health-result', `❌ Health check failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                logToResult('health-result', `❌ Network error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAuth() {
+            const resultDiv = document.getElementById('auth-result');
+            resultDiv.innerHTML = 'Testing authentication...';
+            
+            try {
+                // Simulate Supabase auth check
+                logToResult('auth-result', '🔍 Checking Supabase client...', 'info');
+                
+                if (typeof window.supabase === 'undefined') {
+                    logToResult('auth-result', '⚠️ Supabase client not found - this is expected in standalone test', 'info');
+                    logToResult('auth-result', '🔧 Testing without authentication...', 'info');
+                    
+                    // Test endpoint that might not require auth
+                    const response = await fetch(`${API_BASE_URL}/health`);
+                    if (response.ok) {
+                        logToResult('auth-result', '✅ Basic connectivity works', 'success');
+                    }
+                } else {
+                    const { data: { session }, error } = await window.supabase.auth.getSession();
+                    if (error) {
+                        logToResult('auth-result', `❌ Auth error: ${error.message}`, 'error');
+                    } else if (session) {
+                        logToResult('auth-result', `✅ User authenticated: ${session.user.email}`, 'success');
+                    } else {
+                        logToResult('auth-result', '⚠️ No active session', 'info');
+                    }
+                }
+            } catch (error) {
+                logToResult('auth-result', `❌ Auth test error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('upload-result');
+            const progressDiv = document.getElementById('upload-progress');
+            
+            if (!fileInput.files[0]) {
+                logToResult('upload-result', '❌ Please select a file first', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '';
+            progressDiv.innerHTML = '';
+            
+            logToResult('upload-result', `📁 File selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+            
+            try {
+                // Test file validation
+                const validTypes = ['video/mp4', 'video/mov', 'video/avi'];
+                if (!validTypes.includes(file.type)) {
+                    logToResult('upload-result', `❌ Invalid file type: ${file.type}`, 'error');
+                    return;
+                }
+                
+                if (file.size > 500 * 1024 * 1024) { // 500MB
+                    logToResult('upload-result', '❌ File too large (>500MB)', 'error');
+                    return;
+                }
+                
+                logToResult('upload-result', '✅ File validation passed', 'success');
+                
+                // Create FormData
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('niche', 'general');
+                formData.append('quality', 'standard');
+                
+                logToResult('upload-result', '📤 Starting upload...', 'info');
+                
+                // Create XMLHttpRequest for progress tracking
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressDiv.innerHTML = `<div>Upload Progress: ${percentComplete.toFixed(1)}%</div>`;
+                        logToResult('upload-result', `📊 Progress: ${percentComplete.toFixed(1)}%`, 'info');
+                    }
+                });
+                
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            logToResult('upload-result', `✅ Upload successful: ${JSON.stringify(response)}`, 'success');
+                        } catch (e) {
+                            logToResult('upload-result', `✅ Upload completed but response parsing failed: ${xhr.responseText}`, 'success');
+                        }
+                    } else {
+                        logToResult('upload-result', `❌ Upload failed: ${xhr.status} ${xhr.statusText}`, 'error');
+                        logToResult('upload-result', `Response: ${xhr.responseText}`, 'error');
+                    }
+                });
+                
+                xhr.addEventListener('error', () => {
+                    logToResult('upload-result', '❌ Network error during upload', 'error');
+                });
+                
+                xhr.addEventListener('timeout', () => {
+                    logToResult('upload-result', '❌ Upload timeout', 'error');
+                });
+                
+                xhr.open('POST', `${API_BASE_URL}/videos/upload`);
+                xhr.timeout = 60000; // 60 second timeout
+                xhr.send(formData);
+                
+            } catch (error) {
+                logToResult('upload-result', `❌ Upload error: ${error.message}`, 'error');
+            }
+        }
+        
+        function startNetworkMonitoring() {
+            networkMonitoring = true;
+            document.getElementById('network-result').innerHTML = '';
+            logToResult('network-result', '🔍 Network monitoring started', 'success');
+        }
+        
+        function stopNetworkMonitoring() {
+            networkMonitoring = false;
+            logToResult('network-result', '⏹️ Network monitoring stopped', 'info');
+        }
+        
+        // Auto-start basic tests
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testBackendHealth();
+                testAuth();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

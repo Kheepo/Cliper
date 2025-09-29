@@ -1,0 +1,223 @@
+# Prometheus Configuration for Video Processing System
+# Production monitoring setup with comprehensive metrics collection
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'video-processing-prod'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Video Processing API
+  - job_name: 'video-api'
+    static_configs:
+      - targets: ['api:9090']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: api:9090
+
+  # Celery Workers
+  - job_name: 'celery-workers'
+    static_configs:
+      - targets: 
+        - 'worker:9091'
+        # Add more workers as needed
+        # - 'worker2:9091'
+        # - 'worker3:9091'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # PostgreSQL
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Node Exporter (System metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: 
+        - 'node-exporter:9100'
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # cAdvisor (Container metrics)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Flower (Celery monitoring)
+  - job_name: 'flower'
+    static_configs:
+      - targets: ['flower:5555']
+    scrape_interval: 60s
+    metrics_path: /metrics
+    scrape_timeout: 30s
+
+  # Custom application metrics
+  - job_name: 'video-processing-metrics'
+    static_configs:
+      - targets: ['api:8000']
+    scrape_interval: 15s
+    metrics_path: /api/v2/metrics
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__name__]
+        regex: 'video_.*'
+        target_label: service
+        replacement: 'video-processing'
+
+  # WebSocket metrics
+  - job_name: 'websocket-metrics'
+    static_configs:
+      - targets: ['api:8001']
+    scrape_interval: 30s
+    metrics_path: /ws/metrics
+    scrape_timeout: 10s
+
+  # FFmpeg process metrics (if available)
+  - job_name: 'ffmpeg-metrics'
+    static_configs:
+      - targets: ['api:8000']
+    scrape_interval: 30s
+    metrics_path: /api/v2/ffmpeg-metrics
+    scrape_timeout: 15s
+
+  # AI service metrics
+  - job_name: 'ai-service-metrics'
+    static_configs:
+      - targets: ['api:8000']
+    scrape_interval: 60s
+    metrics_path: /api/v2/ai-metrics
+    scrape_timeout: 30s
+
+  # Health check endpoints
+  - job_name: 'health-checks'
+    static_configs:
+      - targets: 
+        - 'api:8000'
+        - 'worker:8000'
+        - 'redis:6379'
+        - 'postgres:5432'
+    scrape_interval: 30s
+    metrics_path: /health
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "https://your-remote-storage/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+#     write_relabel_configs:
+#       - source_labels: [__name__]
+#         regex: 'video_.*|celery_.*|redis_.*|postgres_.*'
+#         action: keep
+
+# Remote read configuration (for querying remote storage)
+# remote_read:
+#   - url: "https://your-remote-storage/api/v1/read"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+    min-block-duration: 2h
+    max-block-duration: 25h
+
+# Web configuration
+web:
+  console.templates: /etc/prometheus/consoles
+  console.libraries: /etc/prometheus/console_libraries
+  enable-lifecycle: true
+  enable-admin-api: true
+  max-connections: 512
+  read-timeout: 30s
+  route-prefix: /
+  external-url: http://prometheus:9090
+
+# Tracing configuration (if using Jaeger)
+# tracing:
+#   endpoint: "jaeger:14268/api/traces"
+#   sampling_fraction: 0.1
+
+# Feature flags
+feature_flags:
+  - name: "promql-at-modifier"
+    enabled: true
+  - name: "promql-negative-offset"
+    enabled: true
+  - name: "remote-write-receiver"
+    enabled: false
+  - name: "exemplar-storage"
+    enabled: true
+
+# Query configuration
+query:
+  timeout: 2m
+  max-concurrency: 20
+  max-samples: 50000000
+  lookback-delta: 5m
+
+# Log configuration
+log:
+  level: info
+  format: json

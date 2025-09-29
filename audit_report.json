@@ -1,0 +1,174 @@
+{
+  "summary": {
+    "total_tests": 31,
+    "passed": 20,
+    "failed": 9,
+    "errors": 2,
+    "pass_rate": 64.51612903225806
+  },
+  "critical_issues": [
+    "Backend server health check failing",
+    "Frontend not accessible",
+    "Database connectivity issues"
+  ],
+  "recommendations": [
+    "Implement proper authentication flow for testing",
+    "Check database configuration and connectivity"
+  ],
+  "detailed_results": {
+    "server_connectivity": {
+      "backend_health": {
+        "status": "FAIL",
+        "status_code": 426,
+        "response_time": 3.063044
+      },
+      "backend_detailed_health": {
+        "status": "FAIL",
+        "status_code": 426,
+        "response_time": 2.031123
+      },
+      "backend_readiness": {
+        "status": "FAIL",
+        "status_code": 426,
+        "response_time": 2.040493
+      },
+      "frontend_accessibility": {
+        "status": "ERROR",
+        "error": "HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E7D1D47490>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))"
+      }
+    },
+    "authentication": {
+      "registration": {
+        "status": "NOT_FOUND",
+        "status_code": 403
+      },
+      "login": {
+        "status": "NOT_FOUND",
+        "status_code": 403
+      },
+      "oauth_google": {
+        "status": "AVAILABLE",
+        "status_code": 426
+      },
+      "oauth_callback": {
+        "status": "AVAILABLE",
+        "status_code": 426
+      },
+      "oauth_logout": {
+        "status": "AVAILABLE",
+        "status_code": 426
+      }
+    },
+    "api_endpoints": {
+      "user_profile": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "user_settings": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "video_upload": {
+        "status": "AVAILABLE",
+        "status_code": 403,
+        "requires_auth": false
+      },
+      "video_list": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "analysis_start": {
+        "status": "AVAILABLE",
+        "status_code": 403,
+        "requires_auth": false
+      },
+      "analysis_status": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "analysis_results": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "clips_generate": {
+        "status": "AVAILABLE",
+        "status_code": 403,
+        "requires_auth": false
+      },
+      "clips_list": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "jobs_list": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "results_list": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "analytics_overview": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      },
+      "analytics_performance": {
+        "status": "AVAILABLE",
+        "status_code": 426,
+        "requires_auth": false
+      }
+    },
+    "file_operations": {
+      "video_upload": {
+        "status": "AVAILABLE",
+        "status_code": 403,
+        "requires_auth": false
+      },
+      "storage_list": {
+        "status": "AVAILABLE",
+        "status_code": 426
+      },
+      "storage_upload": {
+        "status": "AVAILABLE",
+        "status_code": 426
+      },
+      "storage_download": {
+        "status": "AVAILABLE",
+        "status_code": 426
+      }
+    },
+    "database_operations": {
+      "connectivity": {
+        "status": "FAIL",
+        "status_code": 426
+      },
+      "table_users": {
+        "status": "NOT_FOUND",
+        "status_code": 426
+      },
+      "table_jobs": {
+        "status": "NOT_FOUND",
+        "status_code": 426
+      },
+      "table_results": {
+        "status": "NOT_FOUND",
+        "status_code": 426
+      }
+    },
+    "frontend_connectivity": {
+      "accessibility": {
+        "status": "ERROR",
+        "error": "HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001E7D1E059D0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))"
+      }
+    },
+    "integration_tests": {}
+  }
+}

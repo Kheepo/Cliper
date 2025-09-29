@@ -1,0 +1,262 @@
+# Deployment configuration for clip generation system
+
+app_name: cliper
+environment: production
+
+# Docker configuration
+docker:
+  compose_file: docker-compose.yml
+  build_target: production
+  services:
+    - app
+    - worker
+    - beat
+    - redis
+    - nginx
+  registry:
+    enabled: false
+    url: ""
+    username: ""
+    password: ""
+
+# Health check configuration
+health_checks:
+  timeout: 300  # seconds
+  interval: 10  # seconds
+  endpoints:
+    - url: http://localhost:8000/health
+      expected_status: 200
+      timeout: 5
+    - url: http://localhost:8000/api/v1/health
+      expected_status: 200
+      timeout: 5
+    - url: http://localhost:6379/ping
+      expected_status: 200
+      timeout: 3
+      type: redis
+
+# Backup configuration
+backup:
+  enabled: true
+  retention_days: 7
+  storage:
+    type: local
+    path: ./backups
+  include:
+    - .env
+    - docker-compose.yml
+    - nginx.conf
+    - ssl/
+  exclude:
+    - logs/
+    - tmp/
+    - __pycache__/
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  prometheus:
+    port: 9090
+    retention: 15d
+    scrape_interval: 15s
+  grafana:
+    port: 3000
+    admin_user: admin
+    admin_password: ${GRAFANA_ADMIN_PASSWORD:-admin}
+  alerts:
+    enabled: true
+    webhook_url: ${ALERT_WEBHOOK_URL:-}
+    channels:
+      - email
+      - slack
+
+# Security configuration
+security:
+  ssl:
+    enabled: true
+    cert_path: ./ssl/cert.pem
+    key_path: ./ssl/key.pem
+    auto_renew: true
+  firewall:
+    enabled: true
+    allowed_ports:
+      - 80
+      - 443
+      - 22
+    rate_limiting:
+      enabled: true
+      requests_per_minute: 100
+
+# Performance configuration
+performance:
+  scaling:
+    auto_scale: true
+    min_replicas: 1
+    max_replicas: 5
+    cpu_threshold: 70
+    memory_threshold: 80
+  resources:
+    app:
+      cpu_limit: "1.0"
+      memory_limit: "1Gi"
+      cpu_request: "0.5"
+      memory_request: "512Mi"
+    worker:
+      cpu_limit: "2.0"
+      memory_limit: "2Gi"
+      cpu_request: "1.0"
+      memory_request: "1Gi"
+    redis:
+      cpu_limit: "0.5"
+      memory_limit: "512Mi"
+      cpu_request: "0.2"
+      memory_request: "256Mi"
+
+# Database configuration
+database:
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+  migrations:
+    auto_migrate: false
+    backup_before_migrate: true
+  connection_pool:
+    min_connections: 5
+    max_connections: 20
+    timeout: 30
+
+# Logging configuration
+logging:
+  level: INFO
+  format: json
+  output:
+    - console
+    - file
+  file:
+    path: ./logs/app.log
+    max_size: 100MB
+    max_files: 10
+    compress: true
+  centralized:
+    enabled: false
+    endpoint: ""
+    api_key: ""
+
+# Notification configuration
+notifications:
+  deployment:
+    enabled: true
+    channels:
+      - slack
+      - email
+    on_success: true
+    on_failure: true
+  monitoring:
+    enabled: true
+    channels:
+      - slack
+      - email
+    alerts:
+      - high_cpu
+      - high_memory
+      - disk_space
+      - service_down
+
+# Environment-specific overrides
+environments:
+  development:
+    docker:
+      build_target: development
+    monitoring:
+      enabled: false
+    security:
+      ssl:
+        enabled: false
+    performance:
+      scaling:
+        auto_scale: false
+        min_replicas: 1
+        max_replicas: 1
+  
+  staging:
+    docker:
+      build_target: production
+    monitoring:
+      enabled: true
+    security:
+      ssl:
+        enabled: true
+    performance:
+      scaling:
+        auto_scale: false
+        min_replicas: 1
+        max_replicas: 2
+  
+  production:
+    docker:
+      build_target: production
+    monitoring:
+      enabled: true
+    security:
+      ssl:
+        enabled: true
+    performance:
+      scaling:
+        auto_scale: true
+        min_replicas: 2
+        max_replicas: 10
+    backup:
+      retention_days: 30
+    logging:
+      level: WARNING
+
+# Maintenance configuration
+maintenance:
+  window:
+    enabled: true
+    start_time: "02:00"
+    end_time: "04:00"
+    timezone: "UTC"
+  tasks:
+    - cleanup_logs
+    - cleanup_temp_files
+    - update_dependencies
+    - security_scan
+  notifications:
+    before_hours: 24
+    channels:
+      - email
+      - slack
+
+# Rollback configuration
+rollback:
+  enabled: true
+  automatic:
+    enabled: true
+    health_check_failures: 3
+    timeout_minutes: 10
+  manual:
+    confirmation_required: true
+    backup_validation: true
+
+# Integration configuration
+integrations:
+  ci_cd:
+    enabled: false
+    provider: github_actions
+    webhook_secret: ${CI_WEBHOOK_SECRET:-}
+  monitoring:
+    datadog:
+      enabled: false
+      api_key: ${DATADOG_API_KEY:-}
+    newrelic:
+      enabled: false
+      license_key: ${NEWRELIC_LICENSE_KEY:-}
+  logging:
+    elk:
+      enabled: false
+      endpoint: ${ELK_ENDPOINT:-}
+    splunk:
+      enabled: false
+      token: ${SPLUNK_TOKEN:-}

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .log { max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Upload Flow Diagnostic Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Backend Health Check</h2>
+        <button onclick="testBackendHealth()">Test Backend Health</button>
+        <div id="health-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Authentication Test</h2>
+        <button onclick="testAuthentication()">Test Auth State</button>
+        <div id="auth-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. File Upload Test</h2>
+        <input type="file" id="test-file" accept="video/*">
+        <button onclick="testFileUpload()">Test Upload</button>
+        <div id="upload-result"></div>
+        <div id="upload-progress"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Network Monitor</h2>
+        <button onclick="startNetworkMonitor()">Start Monitoring</button>
+        <button onclick="stopNetworkMonitor()">Stop Monitoring</button>
+        <div id="network-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Console Logs</h2>
+        <div id="console-log" class="log"></div>
+    </div>
+
+    <script>
+        let networkMonitoring = false;
+        let originalFetch = window.fetch;
+        let originalXHR = window.XMLHttpRequest;
+        
+        // Console log capture
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+        
+        function logToPage(type, ...args) {
+            const logDiv = document.getElementById('console-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            logDiv.innerHTML += `<div>[${timestamp}] [${type.toUpperCase()}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Call original console method
+            originalConsole[type](...args);
+        }
+        
+        console.log = (...args) => logToPage('log', ...args);
+        console.error = (...args) => logToPage('error', ...args);
+        console.warn = (...args) => logToPage('warn', ...args);
+        console.info = (...args) => logToPage('info', ...args);
+
+        async function testBackendHealth() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = '<p>Testing backend health...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Backend Health: OK</h4>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Backend Health: Failed</h4>
+                            <p>Status: ${response.status}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Backend Health: Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testAuthentication() {
+            const resultDiv = document.getElementById('auth-result');
+            resultDiv.innerHTML = '<p>Testing authentication...</p>';
+            
+            try {
+                // Check if we're on the same origin as the main app
+                const isMainApp = window.location.origin === 'http://localhost:3000';
+                
+                if (isMainApp) {
+                    // We're on the main app, check auth context
+                    const authState = {
+                        localStorage_auth: localStorage.getItem('auth_state'),
+                        localStorage_profile: localStorage.getItem('user_profile'),
+                        cookies: document.cookie
+                    };
+                    
+                    resultDiv.innerHTML = `
+                        <div class="info">
+                            <h4>🔍 Auth State Check</h4>
+                            <pre>${JSON.stringify(authState, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    // We're on a different origin, test auth endpoint
+                    const response = await fetch('http://localhost:8000/api/auth/me', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include'
+                    });
+                    
+                    const data = await response.text();
+                    
+                    resultDiv.innerHTML = `
+                        <div class="${response.ok ? 'success' : 'error'}">
+                            <h4>${response.ok ? '✅' : '❌'} Auth Test</h4>
+                            <p>Status: ${response.status}</p>
+                            <pre>${data}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Auth Test: Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testFileUpload() {
+            const fileInput = document.getElementById('test-file');
+            const resultDiv = document.getElementById('upload-result');
+            const progressDiv = document.getElementById('upload-progress');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error">Please select a file first</div>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<p>Testing file upload...</p>';
+            progressDiv.innerHTML = '';
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('niche', 'general');
+                formData.append('quality', 'balanced');
+                
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressDiv.innerHTML = `<div class="info">Upload Progress: ${percentComplete.toFixed(1)}%</div>`;
+                    }
+                });
+                
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                <h4>✅ Upload Successful</h4>
+                                <p>Status: ${xhr.status}</p>
+                                <pre>${xhr.responseText}</pre>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="error">
+                                <h4>❌ Upload Failed</h4>
+                                <p>Status: ${xhr.status}</p>
+                                <pre>${xhr.responseText}</pre>
+                            </div>
+                        `;
+                    }
+                });
+                
+                xhr.addEventListener('error', () => {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Upload Error</h4>
+                            <p>Network error occurred</p>
+                        </div>
+                    `;
+                });
+                
+                xhr.addEventListener('timeout', () => {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Upload Timeout</h4>
+                            <p>Request timed out</p>
+                        </div>
+                    `;
+                });
+                
+                xhr.open('POST', 'http://localhost:8000/api/videos/upload');
+                xhr.timeout = 30000; // 30 second timeout
+                xhr.send(formData);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Upload Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function startNetworkMonitor() {
+            networkMonitoring = true;
+            const logDiv = document.getElementById('network-log');
+            logDiv.innerHTML = '<div class="info">Network monitoring started...</div>';
+            
+            // Override fetch
+            window.fetch = async function(...args) {
+                if (networkMonitoring) {
+                    const url = args[0];
+                    const options = args[1] || {};
+                    logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] FETCH: ${url}</div>`;
+                    logDiv.scrollTop = logDiv.scrollHeight;
+                }
+                
+                try {
+                    const response = await originalFetch.apply(this, args);
+                    if (networkMonitoring) {
+                        logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] RESPONSE: ${response.status} ${response.statusText}</div>`;
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                    }
+                    return response;
+                } catch (error) {
+                    if (networkMonitoring) {
+                        logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ERROR: ${error.message}</div>`;
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                    }
+                    throw error;
+                }
+            };
+            
+            // Override XMLHttpRequest
+            window.XMLHttpRequest = function() {
+                const xhr = new originalXHR();
+                
+                if (networkMonitoring) {
+                    const originalOpen = xhr.open;
+                    const originalSend = xhr.send;
+                    
+                    xhr.open = function(method, url, ...args) {
+                        logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] XHR: ${method} ${url}</div>`;
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                        return originalOpen.apply(this, [method, url, ...args]);
+                    };
+                    
+                    xhr.addEventListener('loadend', () => {
+                        logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] XHR RESPONSE: ${xhr.status} ${xhr.statusText}</div>`;
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                    });
+                }
+                
+                return xhr;
+            };
+        }
+
+        function stopNetworkMonitor() {
+            networkMonitoring = false;
+            window.fetch = originalFetch;
+            window.XMLHttpRequest = originalXHR;
+            
+            const logDiv = document.getElementById('network-log');
+            logDiv.innerHTML += '<div class="info">Network monitoring stopped.</div>';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Auto-start network monitoring
+        window.addEventListener('load', () => {
+            console.log('Upload test page loaded');
+            startNetworkMonitor();
+        });
+    </script>
+</body>
+</html>

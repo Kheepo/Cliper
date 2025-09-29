@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clip Processing Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-processing {
+            border-left: 4px solid #ffc107;
+            background: #fff3cd;
+        }
+        .status-completed {
+            border-left: 4px solid #28a745;
+            background: #d4edda;
+        }
+        .status-failed {
+            border-left: 4px solid #dc3545;
+            background: #f8d7da;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .refresh-btn {
+            background: #28a745;
+        }
+        .refresh-btn:hover {
+            background: #1e7e34;
+        }
+        .download-btn {
+            background: #17a2b8;
+        }
+        .download-btn:hover {
+            background: #117a8b;
+        }
+        .clips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .clip-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+        }
+        .clip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .clip-id {
+            font-family: monospace;
+            font-size: 12px;
+            color: #666;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .platforms {
+            margin: 10px 0;
+        }
+        .platform-tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-right: 5px;
+        }
+        .files-list {
+            margin-top: 10px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .file-name {
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Clip Processing Monitor</h1>
+            <p>Monitor and manage your video clip generation</p>
+        </div>
+
+        <!-- Current Clip Status -->
+        <div class="status-card" id="currentClipStatus">
+            <h3>🔍 Current Clip Status</h3>
+            <div class="form-group">
+                <label for="clipId">Clip ID:</label>
+                <input type="text" id="clipId" value="eb1beb4b-ad4a-45a9-85d2-cfa5ff571ac7" placeholder="Enter clip ID to monitor">
+            </div>
+            <button onclick="checkClipStatus()" class="refresh-btn">🔄 Check Status</button>
+            <button onclick="downloadClipFiles()" class="download-btn">📥 Download Files</button>
+            
+            <div id="clipStatusResult" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Auto Refresh Controls -->
+        <div class="auto-refresh">
+            <label>
+                <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                Auto-refresh every 5 seconds
+            </label>
+            <button onclick="refreshAllClips()" class="refresh-btn">🔄 Refresh All</button>
+            <button onclick="loadAllClips()" class="test-btn">📋 Load All Clips</button>
+        </div>
+
+        <!-- All Clips Display -->
+        <div id="allClipsSection">
+            <h3>📁 All Generated Clips</h3>
+            <div id="clipsGrid" class="clips-grid"></div>
+        </div>
+
+        <!-- Processing Logs -->
+        <div class="status-card">
+            <h3>📊 Processing Logs</h3>
+            <button onclick="checkProcessingLogs()">📋 View Logs</button>
+            <button onclick="checkBackgroundTasks()">⚙️ Check Background Tasks</button>
+            <div id="logsResult" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001';
+        let autoRefreshInterval = null;
+
+        // Check specific clip status
+        async function checkClipStatus() {
+            const clipId = document.getElementById('clipId').value.trim();
+            if (!clipId) {
+                showClipResult('Please enter a clip ID', 'error');
+                return;
+            }
+
+            try {
+                showClipResult('Checking clip status...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/clips/${clipId}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayClipStatus(result);
+                } else {
+                    showClipResult(`Error: ${result.detail || 'Failed to fetch clip status'}`, 'error');
+                }
+            } catch (error) {
+                showClipResult(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        // Display clip status in a formatted way
+        function displayClipStatus(clip) {
+            const statusClass = getStatusClass(clip.status);
+            const statusHtml = `
+                <div class="status-${clip.status}">
+                    <h4>Clip Status: <span class="status-badge badge-${clip.status}">${clip.status.toUpperCase()}</span></h4>
+                    <p><strong>Clip ID:</strong> ${clip.id}</p>
+                    <p><strong>Video ID:</strong> ${clip.video_id}</p>
+                    <p><strong>Created:</strong> ${new Date(clip.created_at).toLocaleString()}</p>
+                    <p><strong>Updated:</strong> ${new Date(clip.updated_at).toLocaleString()}</p>
+                    
+                    <div class="platforms">
+                        <strong>Platforms:</strong>
+                        ${clip.platforms.map(p => `<span class="platform-tag">${p}</span>`).join('')}
+                    </div>
+                    
+                    <div class="platforms">
+                        <strong>Segments:</strong>
+                        ${clip.segments.map(s => `<span class="platform-tag">${s}</span>`).join('')}
+                    </div>
+                    
+                    ${clip.file_path ? `<p><strong>Output File:</strong> ${clip.file_path}</p>` : ''}
+                    ${clip.error_message ? `<p><strong>Error:</strong> ${clip.error_message}</p>` : ''}
+                    
+                    ${clip.status === 'processing' ? '<div class="progress-bar"><div class="progress-fill" style="width: 60%;"></div></div>' : ''}
+                </div>
+            `;
+            
+            document.getElementById('clipStatusResult').innerHTML = statusHtml;
+        }
+
+        // Load all clips
+        async function loadAllClips() {
+            try {
+                showClipResult('Loading all clips...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/clips/`);
+                const clips = await response.json();
+                
+                if (response.ok) {
+                    displayAllClips(clips);
+                    showClipResult(`Loaded ${clips.length} clips`, 'success');
+                } else {
+                    showClipResult('Failed to load clips', 'error');
+                }
+            } catch (error) {
+                showClipResult(`Error loading clips: ${error.message}`, 'error');
+            }
+        }
+
+        // Display all clips in grid
+        function displayAllClips(clips) {
+            const grid = document.getElementById('clipsGrid');
+            
+            if (clips.length === 0) {
+                grid.innerHTML = '<p>No clips found. Generate some clips first!</p>';
+                return;
+            }
+            
+            grid.innerHTML = clips.map(clip => `
+                <div class="clip-card">
+                    <div class="clip-header">
+                        <div class="clip-id">${clip.id}</div>
+                        <span class="status-badge badge-${clip.status}">${clip.status}</span>
+                    </div>
+                    
+                    <p><strong>Video:</strong> ${clip.video_id}</p>
+                    <p><strong>Created:</strong> ${new Date(clip.created_at).toLocaleString()}</p>
+                    
+                    <div class="platforms">
+                        ${clip.platforms.map(p => `<span class="platform-tag">${p}</span>`).join('')}
+                    </div>
+                    
+                    ${clip.file_path ? `
+                        <div class="files-list">
+                            <div class="file-item">
+                                <span class="file-name">${clip.file_path.split('/').pop()}</span>
+                                <button onclick="downloadFile('${clip.file_path}')" class="download-btn" style="padding: 4px 8px; font-size: 12px;">📥</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <button onclick="document.getElementById('clipId').value='${clip.id}'; checkClipStatus();" style="width: 100%; margin-top: 10px; padding: 8px;">View Details</button>
+                </div>
+            `).join('');
+        }
+
+        // Download clip files
+        async function downloadClipFiles() {
+            const clipId = document.getElementById('clipId').value.trim();
+            if (!clipId) {
+                showClipResult('Please enter a clip ID', 'error');
+                return;
+            }
+
+            try {
+                // First get clip info to find file path
+                const response = await fetch(`${API_BASE}/api/clips/${clipId}`);
+                const clip = await response.json();
+                
+                if (response.ok && clip.file_path) {
+                    // Try to download the file
+                    const downloadUrl = `${API_BASE}/api/clips/${clipId}/download`;
+                    window.open(downloadUrl, '_blank');
+                    showClipResult('Download started!', 'success');
+                } else {
+                    showClipResult('No files available for download yet', 'error');
+                }
+            } catch (error) {
+                showClipResult(`Download error: ${error.message}`, 'error');
+            }
+        }
+
+        // Check processing logs
+        async function checkProcessingLogs() {
+            try {
+                // This would check Celery/Redis logs if available
+                const response = await fetch(`${API_BASE}/api/system/logs`);
+                
+                if (response.ok) {
+                    const logs = await response.json();
+                    document.getElementById('logsResult').innerHTML = `<pre>${JSON.stringify(logs, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('logsResult').innerHTML = '<p>Logs endpoint not available. Check server console for processing logs.</p>';
+                }
+            } catch (error) {
+                document.getElementById('logsResult').innerHTML = `<p>Could not fetch logs: ${error.message}</p>`;
+            }
+        }
+
+        // Check background tasks
+        async function checkBackgroundTasks() {
+            try {
+                const response = await fetch(`${API_BASE}/api/system/tasks`);
+                
+                if (response.ok) {
+                    const tasks = await response.json();
+                    document.getElementById('logsResult').innerHTML = `<pre>${JSON.stringify(tasks, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('logsResult').innerHTML = '<p>Background tasks endpoint not available.</p>';
+                }
+            } catch (error) {
+                document.getElementById('logsResult').innerHTML = `<p>Could not fetch task status: ${error.message}</p>`;
+            }
+        }
+
+        // Auto refresh functionality
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(() => {
+                    checkClipStatus();
+                    loadAllClips();
+                }, 5000);
+                showClipResult('Auto-refresh enabled (every 5 seconds)', 'success');
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+                showClipResult('Auto-refresh disabled', 'info');
+            }
+        }
+
+        // Refresh all clips
+        function refreshAllClips() {
+            checkClipStatus();
+            loadAllClips();
+        }
+
+        // Utility functions
+        function getStatusClass(status) {
+            switch(status) {
+                case 'completed': return 'success';
+                case 'failed': return 'error';
+                case 'processing': return 'info';
+                default: return 'info';
+            }
+        }
+
+        function showClipResult(message, type = 'info') {
+            // This could be enhanced to show in a dedicated status area
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function downloadFile(filePath) {
+            const fileName = filePath.split('/').pop();
+            const downloadUrl = `${API_BASE}/api/files/download?path=${encodeURIComponent(filePath)}`;
+            window.open(downloadUrl, '_blank');
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            checkClipStatus();
+            loadAllClips();
+        };
+    </script>
+</body>
+</html>

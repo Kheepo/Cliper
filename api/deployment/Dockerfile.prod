@@ -1,0 +1,269 @@
+# Multi-stage build for production-ready video processing API
+FROM python:3.11-slim as base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Essential build tools
+    build-essential \
+    pkg-config \
+    # FFmpeg and multimedia libraries
+    ffmpeg \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libavfilter-dev \
+    # Audio processing
+    libfdk-aac-dev \
+    libmp3lame-dev \
+    libopus-dev \
+    libvorbis-dev \
+    # Video codecs
+    libx264-dev \
+    libx265-dev \
+    libvpx-dev \
+    # GPU acceleration (NVIDIA)
+    libnvidia-encode-470 \
+    # System utilities
+    curl \
+    wget \
+    git \
+    unzip \
+    # Process monitoring
+    htop \
+    # Cleanup
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies in a separate stage
+FROM base as python-deps
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy requirements first for better caching
+COPY requirements.txt /tmp/requirements.txt
+COPY requirements-prod.txt /tmp/requirements-prod.txt
+
+# Install Python packages
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install -r /tmp/requirements.txt && \
+    pip install -r /tmp/requirements-prod.txt
+
+# Production stage
+FROM base as production
+
+# Copy virtual environment from python-deps stage
+COPY --from=python-deps /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Create application directories
+RUN mkdir -p /app /app/uploads /app/temp /app/output /app/cache /app/logs && \
+    chown -R appuser:appuser /app
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY --chown=appuser:appuser . /app/
+
+# Create additional directories for production
+RUN mkdir -p /app/static /app/media /app/backups && \
+    chown -R appuser:appuser /app
+
+# Install additional production tools
+RUN apt-get update && apt-get install -y \
+    # Monitoring and debugging
+    strace \
+    tcpdump \
+    netcat-openbsd \
+    # Log rotation
+    logrotate \
+    # Process management
+    supervisor \
+    # Health checks
+    curl \
+    # Cleanup
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy production configuration files
+COPY --chown=appuser:appuser deployment/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY --chown=appuser:appuser deployment/logrotate.conf /etc/logrotate.d/video-processor
+COPY --chown=appuser:appuser deployment/healthcheck.py /app/healthcheck.py
+
+# Set up log rotation
+RUN chmod 644 /etc/logrotate.d/video-processor
+
+# Create startup script
+RUN cat > /app/start.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Wait for dependencies
+echo "Waiting for Redis..."
+while ! nc -z redis 6379; do
+  sleep 1
+done
+echo "Redis is ready!"
+
+echo "Waiting for PostgreSQL..."
+while ! nc -z postgres 5432; do
+  sleep 1
+done
+echo "PostgreSQL is ready!"
+
+# Run database migrations if needed
+echo "Running database setup..."
+python -c "from api.database import init_db; init_db()" || echo "Database setup skipped"
+
+# Start the application
+echo "Starting Video Processing API..."
+exec uvicorn api.enhanced_main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers ${UVICORN_WORKERS:-4} \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --access-log \
+    --log-level info \
+    --loop uvloop \
+    --http httptools
+EOF
+
+# Make startup script executable
+RUN chmod +x /app/start.sh
+
+# Create health check script
+RUN cat > /app/healthcheck.py << 'EOF'
+#!/usr/bin/env python3
+import sys
+import requests
+import time
+
+def health_check():
+    try:
+        # Check API health
+        response = requests.get('http://localhost:8000/api/v2/health', timeout=10)
+        if response.status_code != 200:
+            print(f"API health check failed: {response.status_code}")
+            return False
+        
+        health_data = response.json()
+        
+        # Check critical services
+        if not health_data.get('redis', {}).get('status') == 'healthy':
+            print("Redis is not healthy")
+            return False
+        
+        if not health_data.get('database', {}).get('status') == 'healthy':
+            print("Database is not healthy")
+            return False
+        
+        # Check system resources
+        system = health_data.get('system', {})
+        if system.get('memory_percent', 0) > 90:
+            print(f"High memory usage: {system.get('memory_percent')}%")
+            return False
+        
+        if system.get('cpu_percent', 0) > 95:
+            print(f"High CPU usage: {system.get('cpu_percent')}%")
+            return False
+        
+        print("Health check passed")
+        return True
+        
+    except Exception as e:
+        print(f"Health check failed: {e}")
+        return False
+
+if __name__ == '__main__':
+    if health_check():
+        sys.exit(0)
+    else:
+        sys.exit(1)
+EOF
+
+# Make health check script executable
+RUN chmod +x /app/healthcheck.py
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python /app/healthcheck.py
+
+# Set resource limits (will be overridden by docker-compose)
+ENV MEMORY_LIMIT=8G
+ENV CPU_LIMIT=4
+
+# Production optimizations
+ENV PYTHONOPTIMIZE=2
+ENV UVICORN_WORKERS=4
+ENV UVICORN_WORKER_CONNECTIONS=1000
+ENV UVICORN_BACKLOG=2048
+ENV UVICORN_KEEPALIVE_TIMEOUT=5
+
+# Application settings
+ENV NODE_ENV=production
+ENV FASTAPI_ENV=production
+ENV LOG_LEVEL=info
+ENV ACCESS_LOG=true
+
+# Security settings
+ENV SECURE_SSL_REDIRECT=true
+ENV SECURE_HSTS_SECONDS=31536000
+ENV SECURE_CONTENT_TYPE_NOSNIFF=true
+ENV SECURE_BROWSER_XSS_FILTER=true
+ENV SECURE_FRAME_DENY=true
+
+# Performance settings
+ENV WORKER_CONNECTIONS=1000
+ENV WORKER_KEEPALIVE=5
+ENV MAX_REQUESTS=1000
+ENV MAX_REQUESTS_JITTER=100
+ENV PRELOAD_APP=true
+
+# Video processing settings
+ENV FFMPEG_THREADS=4
+ENV MAX_CONCURRENT_JOBS=10
+ENV CHUNK_SIZE_SECONDS=60
+ENV MAX_VIDEO_SIZE=500MB
+ENV SUPPORTED_FORMATS=mp4,avi,mov,mkv,webm
+
+# Cache settings
+ENV REDIS_MAX_CONNECTIONS=50
+ENV REDIS_RETRY_ON_TIMEOUT=true
+ENV CACHE_TTL=3600
+
+# Monitoring settings
+ENV ENABLE_METRICS=true
+ENV METRICS_PORT=9000
+ENV ENABLE_TRACING=true
+
+# Default command
+CMD ["/app/start.sh"]
+
+# Labels for metadata
+LABEL maintainer="Video Processing Team" \
+      version="2.0.0" \
+      description="Production-ready video processing API with GPU acceleration" \
+      org.opencontainers.image.title="Video Processor API" \
+      org.opencontainers.image.description="Enhanced video processing service with AI-powered clip generation" \
+      org.opencontainers.image.version="2.0.0" \
+      org.opencontainers.image.vendor="Video Processing Solutions" \
+      org.opencontainers.image.licenses="MIT"

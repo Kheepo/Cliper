@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Test</title>
+</head>
+<body>
+    <h1>Upload System Test</h1>
+    <p>This is a test file to verify the upload functionality.</p>
+    
+    <h2>Test Scenarios:</h2>
+    <ul>
+        <li>Small file upload (< 1MB)</li>
+        <li>Medium file upload (1-10MB)</li>
+        <li>Large file upload (> 10MB)</li>
+        <li>Network interruption simulation</li>
+        <li>Error recovery testing</li>
+    </ul>
+    
+    <h2>Expected Features:</h2>
+    <ul>
+        <li>✅ Resumable uploads with chunking</li>
+        <li>✅ Exponential backoff retry logic</li>
+        <li>✅ Enhanced error categorization</li>
+        <li>✅ Resource monitoring</li>
+        <li>✅ Progress tracking</li>
+        <li>✅ Pause/Resume functionality</li>
+    </ul>
+    
+    <script>
+        console.log('Upload test page loaded successfully');
+        
+        // Test file creation for upload testing
+        function createTestFile(sizeInMB, name) {
+            const size = sizeInMB * 1024 * 1024;
+            const buffer = new ArrayBuffer(size);
+            const view = new Uint8Array(buffer);
+            
+            // Fill with test data
+            for (let i = 0; i < view.length; i++) {
+                view[i] = i % 256;
+            }
+            
+            return new File([buffer], name, { type: 'video/mp4' });
+        }
+        
+        // Make test file creation available globally
+        window.createTestFile = createTestFile;
+        
+        console.log('Test utilities loaded. Use createTestFile(sizeInMB, name) to create test files.');
+    </script>
+</body>
+</html>

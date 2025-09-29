@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clip-generation
+  labels:
+    name: clip-generation
+    environment: production
+    app: clip-generation-api
+  annotations:
+    description: "Namespace for clip generation API and related services"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: clip-generation-quota
+  namespace: clip-generation
+spec:
+  hard:
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "20"
+    limits.memory: 40Gi
+    persistentvolumeclaims: "10"
+    pods: "50"
+    services: "20"
+    secrets: "20"
+    configmaps: "20"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: clip-generation-limits
+  namespace: clip-generation
+spec:
+  limits:
+  - default:
+      cpu: "1"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+  - max:
+      cpu: "4"
+      memory: "8Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    type: Container
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clip-generation-network-policy
+  namespace: clip-generation
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: clip-generation
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: clip-generation
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

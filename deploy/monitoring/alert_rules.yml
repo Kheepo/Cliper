@@ -1,0 +1,262 @@
+# Prometheus Alert Rules for Cliper
+
+groups:
+  # High Priority Alerts
+  - name: cliper.critical
+    interval: 30s
+    rules:
+      # Service Down Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.cliper.com/runbooks/service-down"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 90% for more than 5 minutes on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/high-cpu"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 90% for more than 5 minutes on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/high-memory"
+
+      # Disk Space Critical
+      - alert: DiskSpaceCritical
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Disk usage is above 95% on {{ $labels.instance }} filesystem {{ $labels.mountpoint }}."
+          runbook_url: "https://docs.cliper.com/runbooks/disk-space"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionFailure
+        expr: postgres_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "PostgreSQL database is unreachable"
+          description: "PostgreSQL database on {{ $labels.instance }} is unreachable for more than 1 minute."
+          runbook_url: "https://docs.cliper.com/runbooks/database-down"
+
+      # Redis Connection Issues
+      - alert: RedisConnectionFailure
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: cache
+        annotations:
+          summary: "Redis is unreachable"
+          description: "Redis on {{ $labels.instance }} is unreachable for more than 1 minute."
+          runbook_url: "https://docs.cliper.com/runbooks/redis-down"
+
+  # Application Specific Alerts
+  - name: cliper.application
+    interval: 30s
+    rules:
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for more than 3 minutes on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/high-error-rate"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is above 2 seconds for more than 5 minutes on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/high-latency"
+
+      # Celery Queue Backlog
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_length > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Celery queue backlog detected"
+          description: "Celery queue {{ $labels.queue }} has more than 100 pending tasks for more than 5 minutes."
+          runbook_url: "https://docs.cliper.com/runbooks/celery-backlog"
+
+      # Failed Video Processing
+      - alert: HighVideoProcessingFailureRate
+        expr: rate(video_processing_failed_total[10m]) / rate(video_processing_total[10m]) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: video
+        annotations:
+          summary: "High video processing failure rate"
+          description: "Video processing failure rate is above 10% for more than 5 minutes."
+          runbook_url: "https://docs.cliper.com/runbooks/video-processing-failures"
+
+      # AI Service Failures
+      - alert: AIServiceFailures
+        expr: rate(ai_service_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "AI service experiencing failures"
+          description: "AI service is experiencing more than 0.1 errors per second for more than 3 minutes."
+          runbook_url: "https://docs.cliper.com/runbooks/ai-service-failures"
+
+  # Database Alerts
+  - name: cliper.database
+    interval: 30s
+    rules:
+      # High Database Connections
+      - alert: HighDatabaseConnections
+        expr: postgres_stat_database_numbackends / postgres_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "High database connection usage"
+          description: "Database connection usage is above 80% for more than 5 minutes on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/high-db-connections"
+
+      # Slow Database Queries
+      - alert: SlowDatabaseQueries
+        expr: postgres_stat_activity_max_tx_duration > 300
+        for: 2m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Database queries taking more than 5 minutes detected on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/slow-queries"
+
+      # Database Replication Lag
+      - alert: DatabaseReplicationLag
+        expr: postgres_replication_lag_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Database replication lag detected"
+          description: "Database replication lag is more than 60 seconds on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/replication-lag"
+
+  # Infrastructure Alerts
+  - name: cliper.infrastructure
+    interval: 60s
+    rules:
+      # Container Restart Frequency
+      - alert: ContainerRestartFrequency
+        expr: rate(container_start_time_seconds[1h]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Container restarting frequently"
+          description: "Container {{ $labels.name }} is restarting more than 0.1 times per hour."
+          runbook_url: "https://docs.cliper.com/runbooks/container-restarts"
+
+      # High Network Traffic
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) > 100000000  # 100MB/s
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High network traffic detected"
+          description: "Network traffic is above 100MB/s for more than 10 minutes on {{ $labels.instance }}."
+          runbook_url: "https://docs.cliper.com/runbooks/high-network-traffic"
+
+      # SSL Certificate Expiry
+      - alert: SSLCertificateExpiry
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7  # 7 days
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in less than 7 days."
+          runbook_url: "https://docs.cliper.com/runbooks/ssl-expiry"
+
+  # Business Logic Alerts
+  - name: cliper.business
+    interval: 60s
+    rules:
+      # Low User Activity
+      - alert: LowUserActivity
+        expr: rate(user_actions_total[1h]) < 10
+        for: 30m
+        labels:
+          severity: info
+          team: product
+        annotations:
+          summary: "Low user activity detected"
+          description: "User activity is below 10 actions per hour for more than 30 minutes."
+          runbook_url: "https://docs.cliper.com/runbooks/low-user-activity"
+
+      # High Storage Usage
+      - alert: HighStorageUsage
+        expr: storage_usage_bytes / storage_total_bytes * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High storage usage detected"
+          description: "Storage usage is above 85% for more than 10 minutes."
+          runbook_url: "https://docs.cliper.com/runbooks/high-storage-usage"
+
+      # Failed File Uploads
+      - alert: HighFileUploadFailureRate
+        expr: rate(file_upload_failures_total[10m]) / rate(file_uploads_total[10m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High file upload failure rate"
+          description: "File upload failure rate is above 5% for more than 5 minutes."
+          runbook_url: "https://docs.cliper.com/runbooks/file-upload-failures"

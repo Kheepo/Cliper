@@ -1,0 +1,74 @@
+{
+  "backend_connectivity": {
+    "health": {
+      "status": 200,
+      "working": true,
+      "response_time": 6.773983
+    },
+    "docs": {
+      "status": 200,
+      "working": true
+    }
+  },
+  "authentication": {
+    "registration": {
+      "status": 200,
+      "working": true,
+      "response_data": {
+        "success": true,
+        "message": "User registered successfully. Please check your email to verify your account.",
+        "user": {
+          "uid": "9835cc54-9b7e-474d-9373-99d4b2dd9f75",
+          "email": "test_1758411424@example.com",
+          "display_name": "Test User",
+          "email_confirmed": true
+        },
+        "requires_verification": false
+      }
+    },
+    "login": {
+      "status": 200,
+      "working": true
+    }
+  },
+  "user_management": {},
+  "video_processing": {},
+  "database_operations": {},
+  "frontend_connectivity": {
+    "main": {
+      "status": 200,
+      "working": true,
+      "content_length": 910
+    }
+  },
+  "api_endpoints": {},
+  "error_handling": {
+    "invalid_endpoint": {
+      "status": 404,
+      "working": true
+    },
+    "unauthorized": {
+      "status": 403,
+      "working": true
+    }
+  },
+  "critical_issues": [
+    "Cannot test user management - authentication failed",
+    "User profile endpoint not working",
+    "Missing core features: Profile retrieval"
+  ],
+  "working_features": [
+    "Backend health endpoint",
+    "API documentation",
+    "Frontend server",
+    "React application",
+    "User registration",
+    "User login",
+    "404 error handling",
+    "Unauthorized access handling"
+  ],
+  "broken_features": [],
+  "recommendations": [
+    "Fix profile endpoint - likely Supabase user lookup issue"
+  ]
+}

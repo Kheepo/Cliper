@@ -1,0 +1,54 @@
+# Production Redis configuration
+# Override with environment variables for sensitive values
+
+url: "${REDIS_URL}"  # Set via environment variable
+pool_size: 20
+socket_timeout: 10
+socket_connect_timeout: 5
+socket_keepalive: true
+socket_keepalive_options: {}
+health_check_interval: 30
+retry_on_timeout: true
+max_connections: 50
+
+# Clustering (if using Redis Cluster)
+cluster_enabled: false
+cluster_nodes: []
+
+# Sentinel (if using Redis Sentinel)
+sentinel_enabled: false
+sentinel_hosts: []
+sentinel_service_name: "mymaster"
+
+# Performance tuning
+compression_enabled: true
+compression_threshold: 1024  # Compress data larger than 1KB
+
+# Security
+ssl_enabled: false
+ssl_cert_reqs: "required"
+ssl_ca_certs: null
+ssl_certfile: null
+ssl_keyfile: null
+
+# Monitoring
+metrics_enabled: true
+log_slow_queries: true
+slow_query_threshold: 1000  # 1 second
+
+# Memory management
+maxmemory_policy: "allkeys-lru"
+eviction_policy: "volatile-lru"
+
+# Persistence (for Redis server configuration reference)
+persistence:
+  rdb_enabled: true
+  rdb_save_intervals:
+    - "900 1"    # Save if at least 1 key changed in 900 seconds
+    - "300 10"   # Save if at least 10 keys changed in 300 seconds
+    - "60 10000" # Save if at least 10000 keys changed in 60 seconds
+  
+  aof_enabled: true
+  aof_fsync: "everysec"
+  aof_rewrite_percentage: 100
+  aof_rewrite_min_size: "64mb"

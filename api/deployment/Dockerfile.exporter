@@ -1,0 +1,65 @@
+# Multi-stage Dockerfile for Video Processing Metrics Exporter
+# Optimized for monitoring video processing system performance
+
+FROM python:3.11-slim as base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r exporter && useradd -r -g exporter exporter
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements-exporter.txt .
+RUN pip install --no-cache-dir -r requirements-exporter.txt
+
+# Copy application code
+COPY exporter/ ./exporter/
+COPY shared/ ./shared/
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data && \
+    chown -R exporter:exporter /app
+
+# Switch to non-root user
+USER exporter
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:${EXPORTER_PORT:-9200}/health || exit 1
+
+# Expose port
+EXPOSE 9200
+
+# Start the exporter
+CMD ["python", "-m", "exporter.main"]
+
+# Production stage
+FROM base as production
+
+# Copy production configuration
+COPY deployment/exporter-config.yml /app/config.yml
+
+# Set production environment
+ENV ENVIRONMENT=production \
+    LOG_LEVEL=INFO \
+    METRICS_INTERVAL=30 \
+    CACHE_TTL=300
+
+# Labels for container identification
+LABEL maintainer="Video Processing Team" \
+      version="1.0.0" \
+      description="Custom metrics exporter for video processing system" \
+      component="monitoring"

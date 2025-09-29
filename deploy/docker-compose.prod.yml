@@ -1,0 +1,382 @@
+version: '3.8'
+
+services:
+  # Frontend (Nginx + React)
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    container_name: cliper-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Backend (FastAPI)
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: cliper-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../uploads:/app/uploads
+      - ../logs:/app/logs
+      - ../temp:/app/temp
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://cliper:${POSTGRES_PASSWORD}@postgres:5432/cliper
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
+      - RATE_LIMIT_REQUESTS=1000
+      - RATE_LIMIT_WINDOW=3600
+      - FORCE_HTTPS=true
+      - MAX_FILE_SIZE=104857600
+      - UPLOAD_SCAN_ENABLED=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: cliper-celery-worker
+    command: celery -A api.celery_app worker --loglevel=info --concurrency=4
+    volumes:
+      - ../uploads:/app/uploads
+      - ../logs:/app/logs
+      - ../temp:/app/temp
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://cliper:${POSTGRES_PASSWORD}@postgres:5432/cliper
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "celery", "-A", "api.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: cliper-celery-beat
+    command: celery -A api.celery_app beat --loglevel=info
+    volumes:
+      - ../logs:/app/logs
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://cliper:${POSTGRES_PASSWORD}@postgres:5432/cliper
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: cliper-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: cliper-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=cliper
+      - POSTGRES_USER=cliper
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cliper -d cliper"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cliper-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cliper-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Log Aggregation - ELK Stack
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: cliper-elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: cliper-logstash
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ../logs:/app/logs:ro
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    environment:
+      - "LS_JAVA_OPTS=-Xms512m -Xmx512m"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: cliper-kibana
+    ports:
+      - "5601:5601"
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=kibana
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Backup Service
+  backup:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backup
+    container_name: cliper-backup
+    volumes:
+      - ../uploads:/app/uploads:ro
+      - ../logs:/app/logs:ro
+      - postgres-data:/app/postgres-data:ro
+      - redis-data:/app/redis-data:ro
+      - ./backups:/app/backups
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=cliper
+      - POSTGRES_USER=cliper
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis
+      - BACKUP_SCHEDULE=0 2 * * *  # Daily at 2 AM
+      - BACKUP_RETENTION_DAYS=30
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+
+volumes:
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  elasticsearch-data:
+    driver: local
+
+networks:
+  cliper-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

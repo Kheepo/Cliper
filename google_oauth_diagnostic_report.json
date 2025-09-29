@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-01-22",
+  "supabase_url": "https://stzdywhbdovjojtqxmsd.supabase.co",
+  "google_enabled": false,
+  "oauth_endpoint_working": true,
+  "frontend_config_found": true,
+  "auth_settings": {},
+  "recommendations": [
+    "Enable Google OAuth in Supabase Dashboard",
+    "OAuth endpoint is working",
+    "Frontend config is present"
+  ]
+}

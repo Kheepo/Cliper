@@ -1,0 +1,355 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Cliper Production Dashboard",
+    "tags": ["cliper", "production", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "query": "label_values(up, instance)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "System Overview",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up",
+            "legendFormat": "Services Up",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "CPU Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\", instance=~\"$instance\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Memory Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\"$instance\"} / node_memory_MemTotal_bytes{instance=~\"$instance\"})) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "HTTP Request Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{method}} {{status}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "HTTP Response Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "95th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "50th percentile",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Database Connections",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "postgres_stat_database_numbackends{instance=~\"$instance\"}",
+            "legendFormat": "Active Connections",
+            "refId": "A"
+          },
+          {
+            "expr": "postgres_settings_max_connections{instance=~\"$instance\"}",
+            "legendFormat": "Max Connections",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Redis Memory Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes{instance=~\"$instance\"}",
+            "legendFormat": "Used Memory",
+            "refId": "A"
+          },
+          {
+            "expr": "redis_memory_max_bytes{instance=~\"$instance\"}",
+            "legendFormat": "Max Memory",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Celery Queue Length",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "celery_queue_length{instance=~\"$instance\"}",
+            "legendFormat": "{{queue}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Video Processing Metrics",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "rate(video_processing_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Processing Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(video_processing_failed_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Failure Rate",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Disk Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "(1 - (node_filesystem_avail_bytes{fstype!=\"tmpfs\", instance=~\"$instance\"} / node_filesystem_size_bytes{fstype!=\"tmpfs\", instance=~\"$instance\"})) * 100",
+            "legendFormat": "{{mountpoint}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 95}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Network I/O",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Receive {{device}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Transmit {{device}}",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "Bps"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Error Rate by Service",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 44},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\", instance=~\"$instance\"}[5m]) / rate(http_requests_total{instance=~\"$instance\"}[5m]) * 100",
+            "legendFormat": "{{job}} - {{instance}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Active Alerts",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 52},
+        "targets": [
+          {
+            "expr": "ALERTS{alertstate=\"firing\"}",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "__name__": true
+              },
+              "indexByName": {},
+              "renameByName": {
+                "alertname": "Alert",
+                "severity": "Severity",
+                "instance": "Instance",
+                "job": "Service"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "expr": "increase(deployment_timestamp[1m])",
+          "iconColor": "blue",
+          "enable": true
+        }
+      ]
+    }
+  },
+  "overwrite": true
+}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend Upload</title>
+</head>
+<body>
+    <h1>Test Video Upload</h1>
+    <input type="file" id="fileInput" accept="video/*">
+    <button onclick="uploadFile()">Upload</button>
+    <div id="result"></div>
+
+    <script>
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                document.getElementById('result').innerHTML = 'Please select a file';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('user_id', 'test-user-123');
+
+            const xhr = new XMLHttpRequest();
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    document.getElementById('result').innerHTML = 'Upload successful: ' + xhr.responseText;
+                } else {
+                    document.getElementById('result').innerHTML = 'Upload failed: ' + xhr.status + ' - ' + xhr.responseText;
+                }
+            };
+            
+            xhr.onerror = function() {
+                document.getElementById('result').innerHTML = 'Upload error: ' + xhr.statusText;
+            };
+            
+            xhr.onabort = function() {
+                document.getElementById('result').innerHTML = 'Upload aborted';
+            };
+            
+            xhr.open('POST', 'http://localhost:8001/api/videos/upload');
+            xhr.send(formData);
+        }
+    </script>
+</body>
+</html>

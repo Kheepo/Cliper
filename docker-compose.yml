@@ -1,0 +1,306 @@
+# Docker Compose configuration for clip generation system
+# Supports both development and production environments
+
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: cliper-app
+    ports:
+      - "${APP_PORT:-8000}:8000"
+      - "${WS_PORT:-8001}:8001"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - WORKERS=${WORKERS:-1}
+      
+      # Database
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      
+      # Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      
+      # LLM
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      
+      # Security
+      - SECRET_KEY=${SECRET_KEY}
+      
+      # Paths
+      - BASE_DIR=/app
+      - TEMP_DIR=/app/temp
+      - LOG_DIR=/app/logs
+      - UPLOAD_DIR=/app/uploads
+      
+      # Feature flags
+      - FEATURE_AI_SEGMENTS=${FEATURE_AI_SEGMENTS:-true}
+      - FEATURE_THUMBNAILS=${FEATURE_THUMBNAILS:-true}
+      - FEATURE_REALTIME=${FEATURE_REALTIME:-true}
+      - FEATURE_AUTO_OPTIMIZE=${FEATURE_AUTO_OPTIMIZE:-true}
+      - FEATURE_ERROR_RECOVERY=${FEATURE_ERROR_RECOVERY:-true}
+      - FEATURE_MONITORING=${FEATURE_MONITORING:-true}
+      - FEATURE_WEBHOOKS=${FEATURE_WEBHOOKS:-false}
+      - FEATURE_ANALYTICS=${FEATURE_ANALYTICS:-false}
+      - FEATURE_GPU=${FEATURE_GPU:-false}
+      - FEATURE_DISTRIBUTED=${FEATURE_DISTRIBUTED:-false}
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ${MEDIA_STORAGE_PATH:-./media}:/app/media
+    depends_on:
+      - redis
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: cliper-worker
+    command: celery -A api.celery_app worker --loglevel=${CELERY_LOG_LEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-4}
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      
+      # Database
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      
+      # Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      
+      # LLM
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      
+      # Security
+      - SECRET_KEY=${SECRET_KEY}
+      
+      # Paths
+      - BASE_DIR=/app
+      - TEMP_DIR=/app/temp
+      - LOG_DIR=/app/logs
+      - UPLOAD_DIR=/app/uploads
+      
+      # Feature flags
+      - FEATURE_AI_SEGMENTS=${FEATURE_AI_SEGMENTS:-true}
+      - FEATURE_THUMBNAILS=${FEATURE_THUMBNAILS:-true}
+      - FEATURE_REALTIME=${FEATURE_REALTIME:-true}
+      - FEATURE_AUTO_OPTIMIZE=${FEATURE_AUTO_OPTIMIZE:-true}
+      - FEATURE_ERROR_RECOVERY=${FEATURE_ERROR_RECOVERY:-true}
+      - FEATURE_MONITORING=${FEATURE_MONITORING:-true}
+      - FEATURE_WEBHOOKS=${FEATURE_WEBHOOKS:-false}
+      - FEATURE_ANALYTICS=${FEATURE_ANALYTICS:-false}
+      - FEATURE_GPU=${FEATURE_GPU:-false}
+      - FEATURE_DISTRIBUTED=${FEATURE_DISTRIBUTED:-false}
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ${MEDIA_STORAGE_PATH:-./media}:/app/media
+    depends_on:
+      - redis
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "celery", "-A", "api.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery beat (scheduler)
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: cliper-beat
+    command: celery -A api.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      
+      # Database
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      
+      # Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      
+      # Security
+      - SECRET_KEY=${SECRET_KEY}
+      
+      # Paths
+      - BASE_DIR=/app
+      - TEMP_DIR=/app/temp
+      - LOG_DIR=/app/logs
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    networks:
+      - cliper-network
+    restart: unless-stopped
+
+  # Redis for caching and message broker
+  redis:
+    image: redis:7-alpine
+    container_name: cliper-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --maxmemory ${REDIS_MAX_MEMORY:-512mb} --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Flower for Celery monitoring (development only)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: cliper-flower
+    command: celery -A api.celery_app flower --port=5555
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    profiles:
+      - development
+      - monitoring
+
+  # Nginx reverse proxy (production only)
+  nginx:
+    image: nginx:alpine
+    container_name: cliper-nginx
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./uploads:/var/www/uploads:ro
+    depends_on:
+      - app
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Prometheus for metrics (monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cliper-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # Grafana for dashboards (monitoring)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cliper-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - cliper-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  cliper-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

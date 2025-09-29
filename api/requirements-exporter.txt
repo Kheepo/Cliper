@@ -1,0 +1,97 @@
+# Custom Video Processing Metrics Exporter Dependencies
+# Optimized for monitoring and metrics collection
+
+# Core metrics and monitoring
+prometheus-client==0.17.1
+psutil==5.9.5
+requests==2.31.0
+
+# Database connectivity
+psycopg2-binary==2.9.7
+redis==4.6.0
+sqlalchemy==2.0.19
+
+# Async support
+aiohttp==3.8.5
+aioredis==2.0.1
+asyncpg==0.28.0
+
+# Configuration and environment
+pydantic==2.1.1
+pydantic-settings==2.0.2
+python-dotenv==1.0.0
+PyYAML==6.0.1
+
+# Logging and monitoring
+structlog==23.1.0
+rich==13.5.2
+
+# HTTP client and server
+fastapi==0.101.1
+uvicorn==0.23.2
+httpx==0.24.1
+
+# Data processing
+numpy==1.24.3
+pandas==2.0.3
+
+# Time and scheduling
+APScheduler==3.10.4
+pytz==2023.3
+
+# JSON and serialization
+orjson==3.9.4
+
+# System monitoring
+py-cpuinfo==9.0.0
+GPUtil==1.4.0
+
+# Error handling and retries
+tenacity==8.2.2
+
+# Health checks
+healthcheck==1.3.3
+
+# Memory profiling
+memory-profiler==0.60.0
+
+# Process management
+supervisor==4.2.5
+
+# Metrics collection utilities
+collectd==0.7.0
+
+# Network monitoring
+netifaces==0.11.0
+
+# File system monitoring
+watchdog==3.0.0
+
+# Container metrics
+docker==6.1.3
+
+# Video processing metrics
+opencv-python-headless==4.8.0.74
+ffmpeg-python==0.2.0
+
+# AI service monitoring
+openai==0.27.8
+
+# WebSocket monitoring
+websockets==11.0.3
+
+# Queue monitoring
+celery==5.3.1
+kombu==5.3.1
+
+# Security
+cryptography==41.0.3
+
+# Utilities
+click==8.1.6
+tabulate==0.9.0
+colorama==0.4.6
+
+# Development and debugging
+ipython==8.14.0
+pdbpp==0.10.3

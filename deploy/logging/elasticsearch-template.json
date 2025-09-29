@@ -1,0 +1,354 @@
+{
+  "index_patterns": ["cliper-*"],
+  "version": 1,
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "index.refresh_interval": "5s",
+    "index.codec": "best_compression",
+    "index.mapping.total_fields.limit": 2000,
+    "index.max_result_window": 50000,
+    "analysis": {
+      "analyzer": {
+        "log_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop"]
+        },
+        "path_analyzer": {
+          "type": "custom",
+          "tokenizer": "path_hierarchy",
+          "filter": ["lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||epoch_millis"
+      },
+      "@version": {
+        "type": "keyword"
+      },
+      "message": {
+        "type": "text",
+        "analyzer": "log_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "log_level": {
+        "type": "keyword"
+      },
+      "log_message": {
+        "type": "text",
+        "analyzer": "log_analyzer"
+      },
+      "logger_name": {
+        "type": "keyword"
+      },
+      "service": {
+        "type": "keyword"
+      },
+      "environment": {
+        "type": "keyword"
+      },
+      "cluster": {
+        "type": "keyword"
+      },
+      "region": {
+        "type": "keyword"
+      },
+      "container_name": {
+        "type": "keyword"
+      },
+      "container_id": {
+        "type": "keyword"
+      },
+      "host": {
+        "type": "keyword"
+      },
+      "hostname": {
+        "type": "keyword"
+      },
+      "pid": {
+        "type": "integer"
+      },
+      "thread_id": {
+        "type": "keyword"
+      },
+      "request_id": {
+        "type": "keyword"
+      },
+      "user_id": {
+        "type": "keyword"
+      },
+      "session_id": {
+        "type": "keyword"
+      },
+      "correlation_id": {
+        "type": "keyword"
+      },
+      "trace_id": {
+        "type": "keyword"
+      },
+      "span_id": {
+        "type": "keyword"
+      },
+      "clientip": {
+        "type": "ip"
+      },
+      "request": {
+        "type": "text",
+        "analyzer": "path_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "verb": {
+        "type": "keyword"
+      },
+      "httpversion": {
+        "type": "keyword"
+      },
+      "response": {
+        "type": "integer"
+      },
+      "response_category": {
+        "type": "keyword"
+      },
+      "bytes": {
+        "type": "long"
+      },
+      "referrer": {
+        "type": "keyword"
+      },
+      "agent": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "user_agent": {
+        "properties": {
+          "device": {
+            "type": "keyword"
+          },
+          "name": {
+            "type": "keyword"
+          },
+          "os": {
+            "type": "keyword"
+          },
+          "os_name": {
+            "type": "keyword"
+          },
+          "version": {
+            "type": "keyword"
+          }
+        }
+      },
+      "request_time": {
+        "type": "float"
+      },
+      "response_time": {
+        "type": "float"
+      },
+      "processing_time": {
+        "type": "float"
+      },
+      "geoip": {
+        "properties": {
+          "city_name": {
+            "type": "keyword"
+          },
+          "continent_code": {
+            "type": "keyword"
+          },
+          "country_code2": {
+            "type": "keyword"
+          },
+          "country_code3": {
+            "type": "keyword"
+          },
+          "country_name": {
+            "type": "keyword"
+          },
+          "dma_code": {
+            "type": "long"
+          },
+          "ip": {
+            "type": "ip"
+          },
+          "latitude": {
+            "type": "half_float"
+          },
+          "location": {
+            "type": "geo_point"
+          },
+          "longitude": {
+            "type": "half_float"
+          },
+          "postal_code": {
+            "type": "keyword"
+          },
+          "region_code": {
+            "type": "keyword"
+          },
+          "region_name": {
+            "type": "keyword"
+          },
+          "timezone": {
+            "type": "keyword"
+          }
+        }
+      },
+      "query_type": {
+        "type": "keyword"
+      },
+      "query_duration": {
+        "type": "float"
+      },
+      "sql_query": {
+        "type": "text",
+        "analyzer": "log_analyzer"
+      },
+      "database": {
+        "type": "keyword"
+      },
+      "table": {
+        "type": "keyword"
+      },
+      "redis_command": {
+        "type": "keyword"
+      },
+      "redis_key": {
+        "type": "keyword"
+      },
+      "cache_hit": {
+        "type": "boolean"
+      },
+      "cache_miss": {
+        "type": "boolean"
+      },
+      "celery_task_id": {
+        "type": "keyword"
+      },
+      "celery_task_name": {
+        "type": "keyword"
+      },
+      "celery_queue": {
+        "type": "keyword"
+      },
+      "celery_worker": {
+        "type": "keyword"
+      },
+      "celery_retry_count": {
+        "type": "integer"
+      },
+      "video_id": {
+        "type": "keyword"
+      },
+      "video_format": {
+        "type": "keyword"
+      },
+      "video_duration": {
+        "type": "float"
+      },
+      "video_size": {
+        "type": "long"
+      },
+      "processing_stage": {
+        "type": "keyword"
+      },
+      "ai_model": {
+        "type": "keyword"
+      },
+      "ai_confidence": {
+        "type": "float"
+      },
+      "ai_processing_time": {
+        "type": "float"
+      },
+      "error_code": {
+        "type": "keyword"
+      },
+      "error_type": {
+        "type": "keyword"
+      },
+      "stack_trace": {
+        "type": "text",
+        "analyzer": "log_analyzer"
+      },
+      "exception_class": {
+        "type": "keyword"
+      },
+      "file_path": {
+        "type": "keyword"
+      },
+      "line_number": {
+        "type": "integer"
+      },
+      "function_name": {
+        "type": "keyword"
+      },
+      "alert_required": {
+        "type": "boolean"
+      },
+      "slow_request": {
+        "type": "boolean"
+      },
+      "security_threat": {
+        "type": "boolean"
+      },
+      "business_metric": {
+        "type": "keyword"
+      },
+      "business_value": {
+        "type": "float"
+      },
+      "custom_fields": {
+        "type": "object",
+        "dynamic": true
+      },
+      "tags": {
+        "type": "keyword"
+      },
+      "labels": {
+        "type": "object",
+        "dynamic": true
+      },
+      "kubernetes": {
+        "properties": {
+          "namespace": {
+            "type": "keyword"
+          },
+          "pod_name": {
+            "type": "keyword"
+          },
+          "container_name": {
+            "type": "keyword"
+          },
+          "node_name": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  },
+  "aliases": {
+    "cliper-logs": {},
+    "cliper-current": {}
+  }
+}

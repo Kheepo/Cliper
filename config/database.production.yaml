@@ -1,0 +1,21 @@
+# Production database configuration
+# Override with environment variables for sensitive values
+
+url: "${DATABASE_URL}"  # Set via environment variable
+pool_size: 20
+max_overflow: 40
+pool_timeout: 60
+pool_recycle: 3600
+echo: false
+ssl_mode: "require"
+
+# Connection health checks
+health_check_interval: 30
+
+# Performance tuning for production
+statement_timeout: 30000  # 30 seconds
+idle_in_transaction_session_timeout: 60000  # 1 minute
+
+# Backup and maintenance
+backup_retention_days: 30
+maintenance_window: "02:00-04:00"

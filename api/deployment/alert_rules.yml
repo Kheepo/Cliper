@@ -1,0 +1,384 @@
+# Prometheus Alert Rules for Video Processing System
+# Critical alerts for production monitoring
+
+groups:
+  # High Priority Alerts - Critical System Issues
+  - name: critical_alerts
+    interval: 30s
+    rules:
+      # API Service Down
+      - alert: APIServiceDown
+        expr: up{job="video-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "Video Processing API is down"
+          description: "The Video Processing API has been down for more than 1 minute. Instance: {{ $labels.instance }}"
+          runbook_url: "https://docs.your-domain.com/runbooks/api-down"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{job="video-api",status=~"5.."}[5m]) /
+            rate(http_requests_total{job="video-api"}[5m])
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }}% for the last 5 minutes. Instance: {{ $labels.instance }}"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{job="video-api"}[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s. Instance: {{ $labels.instance }}"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionFailure
+        expr: up{job="postgresql"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection failure"
+          description: "PostgreSQL database is unreachable for more than 2 minutes"
+
+      # Redis Connection Issues
+      - alert: RedisConnectionFailure
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: cache
+        annotations:
+          summary: "Redis connection failure"
+          description: "Redis cache is unreachable for more than 2 minutes"
+
+  # Resource Usage Alerts
+  - name: resource_alerts
+    interval: 60s
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: |
+          (
+            100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          ) > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 
+            node_memory_MemTotal_bytes
+          ) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      # High Disk Usage
+      - alert: HighDiskUsage
+        expr: |
+          (
+            (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) /
+            node_filesystem_size_bytes{fstype!="tmpfs"}
+          ) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }} for filesystem {{ $labels.mountpoint }}"
+
+      # Low Disk Space (Critical)
+      - alert: CriticalDiskSpace
+        expr: |
+          (
+            node_filesystem_free_bytes{fstype!="tmpfs"} /
+            node_filesystem_size_bytes{fstype!="tmpfs"}
+          ) * 100 < 10
+        for: 1m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical disk space shortage"
+          description: "Only {{ $value }}% disk space remaining on {{ $labels.instance }} for filesystem {{ $labels.mountpoint }}"
+
+  # Video Processing Specific Alerts
+  - name: video_processing_alerts
+    interval: 60s
+    rules:
+      # High Video Processing Queue
+      - alert: HighVideoProcessingQueue
+        expr: celery_queue_length{queue="video_processing"} > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+        annotations:
+          summary: "High video processing queue length"
+          description: "Video processing queue has {{ $value }} pending tasks"
+
+      # Video Processing Failures
+      - alert: VideoProcessingFailures
+        expr: |
+          rate(celery_task_failed_total{task="process_video_clips_task"}[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+        annotations:
+          summary: "High video processing failure rate"
+          description: "Video processing failure rate is {{ $value }} failures per second"
+
+      # Long Running Video Tasks
+      - alert: LongRunningVideoTasks
+        expr: |
+          celery_task_runtime_seconds{task="process_video_clips_task"} > 1800
+        for: 1m
+        labels:
+          severity: warning
+          service: celery
+        annotations:
+          summary: "Long running video processing task"
+          description: "Video processing task has been running for {{ $value }} seconds"
+
+      # FFmpeg Process Failures
+      - alert: FFmpegProcessFailures
+        expr: |
+          rate(ffmpeg_process_failures_total[10m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: ffmpeg
+        annotations:
+          summary: "High FFmpeg process failure rate"
+          description: "FFmpeg process failure rate is {{ $value }} failures per second"
+
+      # AI Service Failures
+      - alert: AIServiceFailures
+        expr: |
+          rate(ai_service_failures_total[10m]) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "High AI service failure rate"
+          description: "AI service failure rate is {{ $value }} failures per second"
+
+  # Celery Worker Alerts
+  - name: celery_alerts
+    interval: 60s
+    rules:
+      # No Active Workers
+      - alert: NoActiveCeleryWorkers
+        expr: celery_workers_active == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: celery
+        annotations:
+          summary: "No active Celery workers"
+          description: "No Celery workers are currently active"
+
+      # High Worker Memory Usage
+      - alert: HighWorkerMemoryUsage
+        expr: |
+          celery_worker_memory_usage_bytes / celery_worker_memory_limit_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+        annotations:
+          summary: "High Celery worker memory usage"
+          description: "Worker {{ $labels.worker }} memory usage is {{ $value }}%"
+
+      # Worker Task Timeout
+      - alert: WorkerTaskTimeout
+        expr: |
+          rate(celery_task_timeout_total[10m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+        annotations:
+          summary: "High task timeout rate"
+          description: "Task timeout rate is {{ $value }} timeouts per second"
+
+  # Database Performance Alerts
+  - name: database_alerts
+    interval: 60s
+    rules:
+      # High Database Connections
+      - alert: HighDatabaseConnections
+        expr: |
+          pg_stat_database_numbackends / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High database connection usage"
+          description: "Database connection usage is {{ $value }}%"
+
+      # Slow Database Queries
+      - alert: SlowDatabaseQueries
+        expr: |
+          rate(pg_stat_database_tup_returned[5m]) / rate(pg_stat_database_tup_fetched[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Database query efficiency is {{ $value }}%"
+
+      # Database Lock Waits
+      - alert: DatabaseLockWaits
+        expr: pg_locks_count{mode="AccessExclusiveLock"} > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High database lock waits"
+          description: "{{ $value }} exclusive locks are waiting"
+
+  # Redis Performance Alerts
+  - name: redis_alerts
+    interval: 60s
+    rules:
+      # High Redis Memory Usage
+      - alert: HighRedisMemoryUsage
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value }}%"
+
+      # Redis Connection Spikes
+      - alert: RedisConnectionSpikes
+        expr: |
+          rate(redis_connected_clients[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis connection spike detected"
+          description: "Redis connection rate is {{ $value }} connections per second"
+
+      # Redis Slow Queries
+      - alert: RedisSlowQueries
+        expr: |
+          rate(redis_slowlog_length[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis slow queries detected"
+          description: "Redis slow query rate is {{ $value }} queries per second"
+
+  # WebSocket Alerts
+  - name: websocket_alerts
+    interval: 60s
+    rules:
+      # High WebSocket Connection Count
+      - alert: HighWebSocketConnections
+        expr: websocket_connections_active > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: websocket
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "{{ $value }} active WebSocket connections"
+
+      # WebSocket Connection Failures
+      - alert: WebSocketConnectionFailures
+        expr: |
+          rate(websocket_connection_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: websocket
+        annotations:
+          summary: "High WebSocket connection failure rate"
+          description: "WebSocket connection failure rate is {{ $value }} failures per second"
+
+  # Security Alerts
+  - name: security_alerts
+    interval: 60s
+    rules:
+      # High 4xx Error Rate (Potential Attack)
+      - alert: HighClientErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"4.."}[5m]) /
+            rate(http_requests_total[5m])
+          ) * 100 > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "High client error rate detected"
+          description: "Client error rate is {{ $value }}% - potential attack or misconfiguration"
+
+      # Rate Limit Exceeded
+      - alert: RateLimitExceeded
+        expr: |
+          rate(http_requests_total{status="429"}[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "Rate limit exceeded {{ $value }} times per second"
+
+      # Suspicious Request Patterns
+      - alert: SuspiciousRequestPatterns
+        expr: |
+          rate(http_requests_total{status="403"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Suspicious request patterns detected"
+          description: "High rate of forbidden requests: {{ $value }} per second"

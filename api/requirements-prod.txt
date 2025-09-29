@@ -1,0 +1,260 @@
+# Production-specific requirements for Video Processing API
+# These packages are optimized for production deployment
+
+# Production ASGI server with performance optimizations
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# High-performance event loops
+uvloop==0.19.0
+httptools==0.6.1
+
+# Production monitoring and observability
+prometheus-client==0.19.0
+prometheus-fastapi-instrumentator==6.1.0
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-requests==0.42b0
+opentelemetry-instrumentation-redis==0.42b0
+opentelemetry-instrumentation-psycopg2==0.42b0
+opentelemetry-exporter-jaeger==1.21.0
+
+# Advanced logging and error tracking
+structlog==23.2.0
+sentry-sdk[fastapi]==1.38.0
+loguru==0.7.2
+
+# Security enhancements
+cryptography==41.0.7
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+secrets==1.0.0
+
+# Performance profiling and debugging
+py-spy==0.3.14
+memory-profiler==0.61.0
+line-profiler==4.1.1
+
+# Production database optimizations
+psycopg2-binary==2.9.9
+SQLAlchemy[asyncio]==2.0.23
+alembic==1.12.1
+
+# Advanced caching
+redis[hiredis]==5.0.1
+hiredis==2.2.3
+
+# HTTP client optimizations
+httpx[http2]==0.25.2
+aiohttp==3.9.1
+
+# File handling and compression
+aiofiles==23.2.1
+compression==1.0.0
+
+# Production utilities
+click==8.1.7
+rich==13.7.0
+typer==0.9.0
+
+# Health checks and monitoring
+psutil==5.9.6
+watchdog==3.0.0
+
+# Production configuration management
+python-dotenv==1.0.0
+pydantic-settings==2.1.0
+
+# API documentation (production-optimized)
+fastapi==0.104.1
+uvicorn-worker==0.2.0
+
+# Production middleware
+slowapi==0.1.9  # Rate limiting
+fastapi-limiter==0.1.5
+fastapi-cache2[redis]==0.2.1
+
+# CORS and security middleware
+fastapi-cors==0.0.6
+starlette-context==0.3.6
+
+# Production testing (for health checks)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Backup and recovery
+backup-utils==1.0.0
+
+# Production deployment helpers
+supervisor==4.2.5
+
+# Memory optimization
+objgraph==3.6.0
+tracemalloc==1.0.0
+
+# Production JSON handling
+orjson==3.9.10
+ujson==5.8.0
+
+# Advanced validation
+validators==0.22.0
+
+# Production datetime handling
+pendulum==2.1.2
+
+# Advanced string processing
+fuzzywuzzy==0.18.0
+python-levenshtein==0.23.0
+
+# Production file format support
+pillow==10.1.0
+
+# Advanced networking
+requests-toolbelt==1.0.0
+
+# Production task scheduling
+apscheduler==3.10.4
+
+# Advanced data structures
+sortedcontainers==2.4.0
+
+# Production XML/HTML processing
+lxml==4.9.3
+beautifulsoup4==4.12.2
+
+# Advanced text processing
+nltk==3.8.1
+spacy==3.7.2
+
+# Production machine learning (CPU optimized)
+scikit-learn==1.3.2
+numpy==1.25.2
+scipy==1.11.4
+
+# Production data analysis
+pandas==2.1.3
+
+# Advanced compression
+lz4==4.3.2
+zstandard==0.22.0
+
+# Production networking
+requests[security]==2.31.0
+
+# Advanced concurrency
+gevent==23.9.1
+
+# Production utilities
+more-itertools==10.1.0
+
+# Advanced error handling
+tenacity==8.2.3
+
+# Production serialization
+msgpack==1.0.7
+
+# Advanced hashing
+xxhash==3.4.1
+
+# Production timezone handling
+pytz==2023.3
+
+# Advanced URL handling
+furl==2.1.3
+
+# Production email handling
+email-validator==2.1.0
+
+# Advanced file operations
+pathlibutil==0.2.0
+
+# Production process management
+psutil==5.9.6
+
+# Advanced configuration
+configurator==3.1.0
+
+# Production metrics collection
+statsd==4.0.1
+
+# Advanced debugging
+icecream==2.1.3
+
+# Production optimization
+cython==3.0.6
+
+# Advanced data validation
+cerberus==1.3.5
+
+# Production API versioning
+fastapi-versioning==0.10.0
+
+# Advanced middleware
+starlette-prometheus==0.9.0
+
+# Production background tasks
+rq==1.15.1
+
+# Advanced file watching
+watchfiles==0.21.0
+
+# Production SSL/TLS
+pyopenssl==23.3.0
+
+# Advanced HTTP handling
+httpcore==1.0.2
+
+# Production WebSocket support
+websockets==12.0
+
+# Advanced async utilities
+anyio==4.1.0
+
+# Production template engine
+jinja2==3.1.2
+
+# Advanced CLI utilities
+click-plugins==1.1.1
+
+# Production data export
+openpyxl==3.1.2
+
+# Advanced image processing
+wand==0.6.13
+
+# Production PDF handling
+PyPDF2==3.0.1
+
+# Advanced audio processing
+pydub==0.25.1
+
+# Production video metadata
+mutagen==1.47.0
+
+# Advanced color handling
+colorlog==6.8.0
+
+# Production internationalization
+babel==2.13.1
+
+# Advanced markup processing
+markdown==3.5.1
+
+# Production form handling
+wtforms==3.1.1
+
+# Advanced data structures
+blist==1.3.6
+
+# Production caching strategies
+dogpile.cache==1.2.2
+
+# Advanced queue management
+kombu==5.3.4
+
+# Production message serialization
+billiard==4.2.0
+
+# Advanced worker management
+celery-types==0.18.0
