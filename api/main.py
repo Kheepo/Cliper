@@ -69,6 +69,13 @@ try:
 except ImportError as e:
     logger.warning(f"Could not import clips router: {e}")
 
+try:
+    from api.routers.analysis import router as analysis_router
+    app.include_router(analysis_router, prefix="/api")
+    logger.info("Analysis router loaded successfully")
+except ImportError as e:
+    logger.warning(f"Could not import analysis router: {e}")
+
 # Basic health check endpoint
 @app.get("/")
 async def root():
