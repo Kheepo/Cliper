@@ -27,7 +27,7 @@ except ImportError:
     genai = None
 
 # Local imports
-from ..models.pydantic_models import ViralityScore, Hashtag, PostingRecommendation
+from api.models.pydantic_models import ViralityScore, Hashtag, PostingRecommendation
 
 @dataclass
 class ClipSegment:
@@ -156,7 +156,7 @@ class UnifiedLLMService:
         if gemini_key and GEMINI_AVAILABLE and not gemini_key.startswith('your-') and len(gemini_key) > 20:
             try:
                 genai.configure(api_key=gemini_key)
-                self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                self.gemini_model = genai.GenerativeModel('gemini-1.5-pro')
                 self.gemini_available = True
                 logger.info("Gemini client initialized successfully")
             except Exception as e:

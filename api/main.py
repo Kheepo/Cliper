@@ -76,10 +76,22 @@ try:
 except ImportError as e:
     logger.warning(f"Could not import analysis router: {e}")
 
+try:
+    from api.routers.recommendations import router as recommendations_router
+    app.include_router(recommendations_router, prefix="/api/v1/recommendations")
+    logger.info("Recommendations router loaded successfully")
+except ImportError as e:
+    logger.warning(f"Could not import recommendations router: {e}")
+
 # Basic health check endpoint
 @app.get("/")
 async def root():
     return {"message": "Cliper API is running", "status": "healthy"}
+
+# Test endpoint to verify routing works
+@app.post("/api/v1/recommendations/test")
+async def test_recommendations():
+    return {"message": "Test endpoint working", "status": "success"}
 
 @app.get("/health")
 async def health_check():

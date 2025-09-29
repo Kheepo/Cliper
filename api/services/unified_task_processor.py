@@ -14,6 +14,7 @@ import json
 
 from .unified_ai_service import unified_ai_service, TranscriptionSegment, ViralityScore, ClipSegment
 from .unified_video_processor import unified_video_processor, VideoMetadata, ProcessingConfig, ProcessingResult
+from .viral_scoring import ViralScoringService, PlatformEnum
 from ..services.supabase_service import supabase_service
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class UnifiedTaskProcessor:
         """Initialize the unified task processor."""
         self.ai_service = unified_ai_service
         self.video_processor = unified_video_processor
+        self.viral_scoring = ViralScoringService()
         self.supabase = supabase_service
         
         # Processing statistics
@@ -122,15 +124,70 @@ class UnifiedTaskProcessor:
                 )
                 logger.info(f"Transcribed {len(transcription_segments)} segments")
                 
-                # Analyze virality
+                # Analyze virality using comprehensive viral scoring
                 await self._update_progress(progress, "Analyzing content for virality", 40)
                 await self._call_progress_callback(progress, progress_callback)
                 
-                virality_scores = await self.ai_service.analyze_virality(
-                    transcription_segments,
-                    video_metadata.to_dict(),
-                    processing_options.target_platforms
+                # Convert platform names to enums
+                target_platform_enums = []
+                for platform_name in processing_options.target_platforms:
+                    try:
+                        platform_enum = PlatformEnum(platform_name.lower())
+                        target_platform_enums.append(platform_enum)
+                    except ValueError:
+                        logger.warning(f"Unknown platform: {platform_name}, skipping")
+                
+                # Prepare transcription data for viral scoring
+                transcription_data = {
+                    'segments': [seg.to_dict() for seg in transcription_segments]
+                }
+                
+                # Perform comprehensive viral analysis
+                viral_analysis = await self.viral_scoring.analyze_viral_potential(
+                    transcription=transcription_data,
+                    video_metadata=video_metadata.to_dict(),
+                    target_platforms=target_platform_enums
                 )
+                
+                logger.info(f"Viral analysis completed with overall score: {viral_analysis.overall_viral_score:.2f}")
+                
+                # Convert viral analysis to legacy format for compatibility
+                virality_scores = []
+                for moment in viral_analysis.viral_moments:
+                    if moment.viral_score >= processing_options.min_virality_score / 100.0:
+                        # Create a ViralityScore object for compatibility
+                        virality_score = ViralityScore(
+                            start_time=moment.start_time,
+                            end_time=moment.end_time,
+                            overall_score=moment.viral_score * 100,  # Convert to 0-100 scale
+                            platform_scores={
+                                platform: score * 100 
+                                for platform, score in moment.platform_suitability.items()
+                            },
+                            confidence=moment.confidence,
+                            reasoning=moment.description
+                        )
+                        virality_scores.append(virality_score)
+                
+                # If no high-scoring moments found, use top viral factors
+                if not virality_scores:
+                    logger.warning("No high-potential viral moments found, using top viral factors")
+                    for factor in viral_analysis.viral_factors[:processing_options.max_clips]:
+                        if factor.timestamp_relevance:
+                            start_time, end_time = factor.timestamp_relevance
+                            virality_score = ViralityScore(
+                                start_time=start_time,
+                                end_time=end_time,
+                                overall_score=factor.score * 100,
+                                platform_scores={
+                                    platform: viral_analysis.platform_scores.get(platform, {}).get('score', 50) 
+                                    for platform in processing_options.target_platforms
+                                },
+                                confidence=factor.confidence,
+                                reasoning=factor.reasoning
+                            )
+                            virality_scores.append(virality_score)
+                
                 logger.info(f"Generated {len(virality_scores)} virality scores")
                 
                 # Filter high-potential segments

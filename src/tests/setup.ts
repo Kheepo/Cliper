@@ -71,6 +71,27 @@ vi.mock('sonner', () => ({
   }
 }))
 
+// Mock Lucide React icons globally
+vi.mock('lucide-react', () => {
+  const iconNames = [
+    'Play', 'Pause', 'Download', 'Upload', 'AlertCircle', 'X', 'Settings', 
+    'Clock', 'Video', 'Scissors', 'Volume2', 'VolumeX', 'Sparkles', 'Zap', 
+    'Target', 'Award', 'Check', 'ChevronDown', 'ChevronUp', 'ChevronLeft', 
+    'ChevronRight', 'Plus', 'Minus', 'Edit', 'Trash', 'Eye', 'EyeOff', 
+    'Search', 'Filter', 'Sort', 'Grid', 'List', 'Home', 'User', 'LogOut',
+    'Menu', 'MoreVertical', 'MoreHorizontal', 'Info', 'Warning', 'Error',
+    'Success', 'Loading', 'Refresh', 'Share', 'Copy', 'Link', 'Mail',
+    'Phone', 'Calendar', 'Clock', 'MapPin', 'Star', 'Heart', 'Bookmark'
+  ]
+  
+  const mockIcons = {}
+  iconNames.forEach(name => {
+    mockIcons[name] = () => `<div data-testid="${name.toLowerCase()}-icon" />`
+  })
+  
+  return mockIcons
+})
+
 // Mock React Router
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')

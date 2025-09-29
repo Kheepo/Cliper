@@ -705,5 +705,3 @@ class SecurityManager:
             request_path=threat.request_path,
             tags=['security_threat', threat.threat_type.value]
         )
-    
-    async

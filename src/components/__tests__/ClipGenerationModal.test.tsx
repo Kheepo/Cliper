@@ -17,16 +17,7 @@ vi.mock('../../services/webSocketService', () => ({
   },
 }))
 
-// Mock Lucide React icons
-vi.mock('lucide-react', () => ({
-  Play: () => <div data-testid="play-icon" />,
-  Download: () => <div data-testid="download-icon" />,
-  AlertCircle: () => <div data-testid="alert-icon" />,
-  X: () => <div data-testid="x-icon" />,
-  Settings: () => <div data-testid="settings-icon" />,
-  Clock: () => <div data-testid="clock-icon" />,
-  Video: () => <div data-testid="video-icon" />,
-}))
+// Lucide React icons are mocked globally in setup.ts
 
 describe('ClipGenerationModal', () => {
   const defaultProps = {

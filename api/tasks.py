@@ -1843,11 +1843,71 @@ def generate_clips_task(self, clip_id: str, video_id: str, user_id: str, generat
             video_processor=video_processor
         ))
         
+        # Perform viral scoring analysis on the selected segments
+        asyncio.run(supabase_service.update_clip_status(
+            clip_id=clip_id,
+            status="processing",
+            progress=25,
+            current_step="Analyzing viral potential of segments"
+        ))
+        
+        try:
+            from api.services.viral_scoring import ViralScoringService
+            viral_service = ViralScoringService()
+            
+            # Analyze viral potential for each segment
+            for segment in clip_segments:
+                viral_analysis = asyncio.run(viral_service.analyze_viral_potential(
+                    video_path=video_path,
+                    start_time=segment['start_time'],
+                    end_time=segment['end_time'],
+                    platform=generation_options.get('platform', 'general'),
+                    transcript_segment=_extract_transcript_segment(
+                        analysis_results.get('transcript', ''),
+                        segment['start_time'],
+                        segment['end_time']
+                    )
+                ))
+                
+                # Add viral scoring data to segment
+                segment['viral_analysis'] = {
+                    'overall_score': viral_analysis.overall_score,
+                    'platform_scores': {
+                        platform: score.score for platform, score in viral_analysis.platform_scores.items()
+                    },
+                    'viral_factors': [
+                        {
+                            'factor': factor.factor_type.value,
+                            'score': factor.score,
+                            'confidence': factor.confidence,
+                            'explanation': factor.explanation
+                        }
+                        for factor in viral_analysis.viral_factors
+                    ],
+                    'viral_moments': [
+                        {
+                            'timestamp': moment.timestamp,
+                            'intensity': moment.intensity,
+                            'description': moment.description,
+                            'factors': [f.value for f in moment.factors]
+                        }
+                        for moment in viral_analysis.viral_moments
+                    ],
+                    'insights': viral_analysis.insights,
+                    'confidence': viral_analysis.confidence
+                }
+                
+                logger.info(f"Viral analysis completed for segment {segment['start_time']:.1f}-{segment['end_time']:.1f}s: score {viral_analysis.overall_score:.2f}")
+                
+        except Exception as viral_error:
+            logger.warning(f"Viral scoring failed, continuing without viral analysis: {viral_error}")
+            # Continue without viral scoring if it fails
+        
         # Update progress
         asyncio.run(supabase_service.update_clip_status(
             clip_id=clip_id,
             status="processing",
-            progress=30,
+            progress=35,
             current_step="Preparing video processing"
         ))
         
@@ -1880,7 +1940,7 @@ def generate_clips_task(self, clip_id: str, video_id: str, user_id: str, generat
                         failed_clips += 1
                         continue
                 
-                segment_progress = 30 + (i / total_segments) * 50  # 30-80% for processing
+                segment_progress = 35 + (i / total_segments) * 50  # 35-85% for processing
                 
                 asyncio.run(supabase_service.update_clip_status(
                     clip_id=clip_id,
@@ -1965,7 +2025,7 @@ def generate_clips_task(self, clip_id: str, video_id: str, user_id: str, generat
         asyncio.run(supabase_service.update_clip_status(
             clip_id=clip_id,
             status="processing",
-            progress=85,
+            progress=90,
             current_step="Finalizing clips"
         ))
         
@@ -1980,6 +2040,18 @@ def generate_clips_task(self, clip_id: str, video_id: str, user_id: str, generat
                 "processing_time": time.time() - start_time,
                 "platform": generation_options.get('platform', 'general'),
                 "clip_type": generation_options.get('clip_type', 'highlight')
+            },
+            "viral_analysis": {
+                "segments_analyzed": len([s for s in clip_segments if 'viral_analysis' in s]),
+                "average_viral_score": sum(
+                    s.get('viral_analysis', {}).get('overall_score', 0) 
+                    for s in clip_segments
+                ) / len(clip_segments) if clip_segments else 0,
+                "best_viral_score": max(
+                    (s.get('viral_analysis', {}).get('overall_score', 0) for s in clip_segments),
+                    default=0
+                ),
+                "platform_optimized": generation_options.get('platform', 'general') != 'general'
             }
         }
         
@@ -2863,3 +2935,37 @@ def _validate_clip_generation_input(clip_id: str, generation_options: dict) -> D
             'end_time': float(end_time) if end_time is not None else None
         }
     }
+
+
+def _extract_transcript_segment(transcript: str, start_time: float, end_time: float) -> str:
+    """
+    Extract a segment of transcript based on time range.
+    This is a simplified implementation - in a real system, you'd need
+    timestamp-aligned transcript data.
+    """
+    if not transcript:
+        return ""
+    
+    # Simple approximation: assume transcript is evenly distributed over time
+    # In a real implementation, you'd use timestamp-aligned transcript data
+    words = transcript.split()
+    total_words = len(words)
+    
+    if total_words == 0:
+        return ""
+    
+    # Estimate words per second (rough approximation)
+    # Average speaking rate is about 150-160 words per minute
+    words_per_second = 2.5
+    
+    start_word_index = int(start_time * words_per_second)
+    end_word_index = int(end_time * words_per_second)
+    
+    # Ensure indices are within bounds
+    start_word_index = max(0, min(start_word_index, total_words - 1))
+    end_word_index = max(start_word_index, min(end_word_index, total_words))
+    
+    # Extract the segment
+    segment_words = words[start_word_index:end_word_index]
+    
+    return " ".join(segment_words)

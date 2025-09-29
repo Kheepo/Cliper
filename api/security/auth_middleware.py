@@ -436,4 +436,4 @@ class SecurityAuditLogger:
 def get_audit_logger() -> SecurityAuditLogger:
     """Get security audit logger instance."""
     redis_client = redis.Redis.from_url(settings.REDIS_URL)
-    return SecurityAuditLogger(redis_
+    return SecurityAuditLogger(redis_client)

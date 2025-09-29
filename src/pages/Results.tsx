@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { apiService, AnalysisResult, ClipSegment } from '../services/api'
 import { webSocketService } from '../services/websocket'
 import { toast } from 'sonner'
+import ViralScoreCard from '../components/ViralScoreCard'
 import { 
   Play, 
   Download, 
@@ -68,8 +69,39 @@ interface ViralMetrics {
   }
 }
 
+interface ViralFactor {
+  factor: string
+  score: number
+  confidence: number
+  explanation: string
+}
+
+interface PlatformScore {
+  score: number
+  confidence?: number
+}
+
+interface ViralMoment {
+  timestamp: number
+  intensity: number
+  description: string
+  factors: string[]
+}
+
+interface ViralAnalysis {
+  overall_score: number
+  platform_scores: {
+    [platform: string]: PlatformScore
+  }
+  viral_factors: ViralFactor[]
+  viral_moments: ViralMoment[]
+  insights: string[]
+  confidence: number
+}
+
 interface EnhancedClipSegment extends ClipSegment {
   viral_metrics: ViralMetrics
+  viral_analysis?: ViralAnalysis
   transcript_snippet: string
   key_moments: string[]
   suggested_titles: string[]
@@ -185,6 +217,7 @@ const Results = () => {
             twitter: clip.twitter_score || 7.9
           }
         },
+        viral_analysis: clip.viral_analysis,
         transcript_snippet: clip.transcript_snippet || 'Transcript not available',
         key_moments: clip.key_moments || ['Engaging opening', 'Peak moment', 'Strong conclusion'],
         suggested_titles: clip.suggested_titles || [clip.title, `${clip.title} - Viral Edit`, `${clip.title} Highlights`],
@@ -621,40 +654,55 @@ const Results = () => {
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        getViralScoreColor(segment.viral_score)
+                        getViralScoreColor(segment.viral_analysis?.overall_score || segment.viral_score)
                       }`}>
-                        {segment.viral_score.toFixed(1)}
+                        {(segment.viral_analysis?.overall_score || segment.viral_score).toFixed(1)}
                       </span>
+                      {segment.viral_analysis?.confidence && (
+                        <span className="text-xs text-gray-500">
+                          {(segment.viral_analysis.confidence * 100).toFixed(0)}% confidence
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Platform Scores */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <span className="text-xs font-medium text-gray-600">TikTok</span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {segment.viral_metrics.platform_optimization.tiktok.toFixed(1)}
-                      </span>
+                  {/* Viral Score Card - Compact View */}
+                  {segment.viral_analysis ? (
+                    <div className="mb-4">
+                      <ViralScoreCard 
+                        viralAnalysis={segment.viral_analysis}
+                        view="compact"
+                      />
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <span className="text-xs font-medium text-gray-600">YouTube</span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {segment.viral_metrics.platform_optimization.youtube_shorts.toFixed(1)}
-                      </span>
+                  ) : (
+                    /* Fallback Platform Scores */
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <span className="text-xs font-medium text-gray-600">TikTok</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {segment.viral_metrics.platform_optimization.tiktok.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <span className="text-xs font-medium text-gray-600">YouTube</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {segment.viral_metrics.platform_optimization.youtube_shorts.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <span className="text-xs font-medium text-gray-600">Instagram</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {segment.viral_metrics.platform_optimization.instagram_reels.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <span className="text-xs font-medium text-gray-600">Twitter</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {segment.viral_metrics.platform_optimization.twitter.toFixed(1)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <span className="text-xs font-medium text-gray-600">Instagram</span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {segment.viral_metrics.platform_optimization.instagram_reels.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <span className="text-xs font-medium text-gray-600">Twitter</span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {segment.viral_metrics.platform_optimization.twitter.toFixed(1)}
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex items-center space-x-2 mb-4">
@@ -708,28 +756,40 @@ const Results = () => {
                 {/* Expanded Details */}
                 {isExpanded && (
                   <div className="border-t border-gray-200 p-6 bg-gray-50">
-                    {/* Viral Metrics */}
-                    <div className="mb-6">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Viral Metrics</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex justify-between">
-                          <span className="text-xs text-gray-600">Engagement</span>
-                          <span className="text-sm font-medium">{segment.viral_metrics.engagement_potential.toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-gray-600">Shareability</span>
-                          <span className="text-sm font-medium">{segment.viral_metrics.shareability.toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-gray-600">Retention</span>
-                          <span className="text-sm font-medium">{segment.viral_metrics.retention_score.toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-gray-600">Emotional Impact</span>
-                          <span className="text-sm font-medium">{segment.viral_metrics.emotional_impact.toFixed(1)}</span>
+                    {/* Viral Analysis */}
+                    {segment.viral_analysis && (
+                      <div className="mb-6">
+                        <ViralScoreCard 
+                          viralAnalysis={segment.viral_analysis}
+                          view="detailed"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Fallback Viral Metrics if no viral_analysis */}
+                    {!segment.viral_analysis && (
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Viral Metrics</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex justify-between">
+                            <span className="text-xs text-gray-600">Engagement</span>
+                            <span className="text-sm font-medium">{segment.viral_metrics.engagement_potential.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-xs text-gray-600">Shareability</span>
+                            <span className="text-sm font-medium">{segment.viral_metrics.shareability.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-xs text-gray-600">Retention</span>
+                            <span className="text-sm font-medium">{segment.viral_metrics.retention_score.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-xs text-gray-600">Emotional Impact</span>
+                            <span className="text-sm font-medium">{segment.viral_metrics.emotional_impact.toFixed(1)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Key Moments */}
                     <div className="mb-6">

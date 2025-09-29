@@ -720,3 +720,278 @@ class HealthCheckResponse(BaseModel):
                 "active_jobs": 5
             }
         }
+
+# Enhanced Hashtag and Posting Recommendation Models
+
+class HashtagCategoryEnum(str, Enum):
+    """Hashtag category enumeration"""
+    TRENDING = "trending"
+    NICHE = "niche"
+    COMMUNITY = "community"
+    BRANDED = "branded"
+    LOCATION = "location"
+    EMOTION = "emotion"
+    EVERGREEN = "evergreen"
+    SEASONAL = "seasonal"
+
+class CompetitionLevelEnum(str, Enum):
+    """Competition level enumeration"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    VERY_HIGH = "very_high"
+
+class EnhancedHashtag(BaseModel):
+    """Enhanced hashtag model with detailed analytics"""
+    tag: str = Field(..., description="Hashtag without # symbol", min_length=1, max_length=100)
+    platform: PlatformEnum = Field(..., description="Target platform")
+    category: HashtagCategoryEnum = Field(..., description="Hashtag category")
+    relevance_score: float = Field(..., ge=0.0, le=1.0, description="Content relevance score")
+    engagement_prediction: float = Field(..., ge=0.0, le=1.0, description="Predicted engagement rate")
+    trend_score: float = Field(..., ge=0.0, le=1.0, description="Current trending score")
+    competition_level: CompetitionLevelEnum = Field(..., description="Competition level")
+    estimated_reach: Optional[int] = Field(None, ge=0, description="Estimated reach potential")
+    usage_frequency: Optional[int] = Field(None, ge=0, description="How often this hashtag is used")
+    performance_metrics: Optional[Dict[str, float]] = Field(None, description="Historical performance data")
+    reasoning: Optional[str] = Field(None, description="Why this hashtag was recommended")
+    viral_alignment_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Alignment with viral factors")
+    
+    @validator('tag')
+    def validate_hashtag(cls, v):
+        # Remove # if present and validate format
+        v = v.lstrip('#').strip()
+        if not v:
+            raise ValueError('Hashtag cannot be empty')
+        if not re.match(r'^[a-zA-Z0-9_]+$', v):
+            raise ValueError('Hashtag can only contain letters, numbers, and underscores')
+        return v.lower()
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "tag": "fyp",
+                "platform": "tiktok",
+                "category": "trending",
+                "relevance_score": 0.85,
+                "engagement_prediction": 0.12,
+                "trend_score": 0.95,
+                "competition_level": "high",
+                "estimated_reach": 1000000,
+                "usage_frequency": 50000,
+                "performance_metrics": {
+                    "avg_likes": 1500,
+                    "avg_shares": 200,
+                    "avg_comments": 150
+                },
+                "reasoning": "High trending score and strong engagement potential",
+                "viral_alignment_score": 0.88
+            }
+        }
+
+class OptimalPostingTime(BaseModel):
+    """Optimal posting time recommendation"""
+    day_of_week: Literal["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] = Field(
+        ..., description="Day of the week"
+    )
+    hour: int = Field(..., ge=0, le=23, description="Hour in 24-hour format")
+    minute: int = Field(default=0, ge=0, le=59, description="Minute")
+    timezone: str = Field(default="UTC", description="Timezone for the posting time")
+    engagement_score: float = Field(..., ge=0.0, le=1.0, description="Expected engagement score")
+    audience_size: float = Field(..., ge=0.0, le=1.0, description="Relative audience size")
+    competition_level: CompetitionLevelEnum = Field(..., description="Content competition level at this time")
+    confidence_score: float = Field(..., ge=0.0, le=1.0, description="Confidence in this recommendation")
+    reasoning: Optional[str] = Field(None, description="Explanation for this time recommendation")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "day_of_week": "tuesday",
+                "hour": 19,
+                "minute": 30,
+                "timezone": "UTC",
+                "engagement_score": 0.85,
+                "audience_size": 0.75,
+                "competition_level": "medium",
+                "confidence_score": 0.92,
+                "reasoning": "Peak audience activity with moderate competition"
+            }
+        }
+
+class PostingFrequencyRecommendation(BaseModel):
+    """Posting frequency recommendations"""
+    posts_per_day: float = Field(..., ge=0.1, le=10.0, description="Recommended posts per day")
+    posts_per_week: float = Field(..., ge=0.5, le=50.0, description="Recommended posts per week")
+    optimal_spacing_hours: float = Field(..., ge=1.0, le=168.0, description="Optimal hours between posts")
+    peak_days: List[str] = Field(..., description="Best days of the week for posting")
+    avoid_days: List[str] = Field(default_factory=list, description="Days to avoid posting")
+    seasonal_adjustments: Optional[Dict[str, float]] = Field(None, description="Seasonal posting adjustments")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "posts_per_day": 1.5,
+                "posts_per_week": 10.5,
+                "optimal_spacing_hours": 8.0,
+                "peak_days": ["tuesday", "wednesday", "thursday"],
+                "avoid_days": ["sunday"],
+                "seasonal_adjustments": {
+                    "holiday_season": 1.2,
+                    "summer": 0.9
+                }
+            }
+        }
+
+class EnhancedPostingRecommendation(BaseModel):
+    """Enhanced posting recommendation with detailed insights"""
+    platform: PlatformEnum = Field(..., description="Target platform")
+    optimal_times: List[OptimalPostingTime] = Field(..., description="List of optimal posting times")
+    posting_frequency: PostingFrequencyRecommendation = Field(..., description="Frequency recommendations")
+    content_format_suggestions: List[str] = Field(..., description="Recommended content formats")
+    engagement_tips: List[str] = Field(..., description="Platform-specific engagement tips")
+    audience_insights: Dict[str, Any] = Field(..., description="Target audience insights")
+    performance_predictions: Dict[str, float] = Field(..., description="Expected performance metrics")
+    confidence_score: float = Field(..., ge=0.0, le=1.0, description="Overall confidence in recommendations")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "platform": "tiktok",
+                "optimal_times": [
+                    {
+                        "day_of_week": "tuesday",
+                        "hour": 19,
+                        "minute": 30,
+                        "timezone": "UTC",
+                        "engagement_score": 0.85,
+                        "audience_size": 0.75,
+                        "competition_level": "medium",
+                        "confidence_score": 0.92
+                    }
+                ],
+                "posting_frequency": {
+                    "posts_per_day": 1.5,
+                    "posts_per_week": 10.5,
+                    "optimal_spacing_hours": 8.0,
+                    "peak_days": ["tuesday", "wednesday", "thursday"]
+                },
+                "content_format_suggestions": ["short_video", "trending_audio", "text_overlay"],
+                "engagement_tips": ["Use trending sounds", "Add captions", "Include call-to-action"],
+                "audience_insights": {
+                    "primary_age_group": "18-24",
+                    "peak_activity": "evening",
+                    "interests": ["entertainment", "music", "comedy"]
+                },
+                "performance_predictions": {
+                    "expected_engagement_rate": 0.08,
+                    "estimated_reach": 10000,
+                    "viral_potential": 0.15
+                },
+                "confidence_score": 0.87
+            }
+        }
+
+class HashtagRecommendationRequest(BaseModel):
+    """Request model for hashtag recommendations"""
+    content_description: str = Field(..., min_length=10, max_length=1000, description="Description of the content")
+    platforms: List[PlatformEnum] = Field(..., min_items=1, max_items=3, description="Target platforms")
+    target_audience: Optional[str] = Field(None, max_length=500, description="Target audience description")
+    content_category: Optional[str] = Field(None, max_length=100, description="Content category")
+    viral_score_data: Optional[Dict[str, Any]] = Field(None, description="Viral scoring data for enhancement")
+    max_hashtags_per_platform: int = Field(default=10, ge=3, le=30, description="Maximum hashtags per platform")
+    include_performance_predictions: bool = Field(default=True, description="Include performance predictions")
+    
+    @validator('content_description')
+    def validate_content_description(cls, v):
+        if not v or v.isspace():
+            raise ValueError('Content description cannot be empty')
+        return v.strip()
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "content_description": "Funny cooking video showing how to make pasta with unexpected ingredients",
+                "platforms": ["tiktok", "instagram"],
+                "target_audience": "Young adults interested in cooking and comedy",
+                "content_category": "entertainment",
+                "max_hashtags_per_platform": 8,
+                "include_performance_predictions": True
+            }
+        }
+
+class PostingTimeRequest(BaseModel):
+    """Request model for posting time optimization"""
+    platforms: List[PlatformEnum] = Field(..., min_items=1, max_items=3, description="Target platforms")
+    target_audience: Optional[str] = Field(None, max_length=500, description="Target audience description")
+    content_type: Optional[str] = Field(None, max_length=100, description="Type of content")
+    geographic_region: Optional[str] = Field(None, max_length=100, description="Geographic region")
+    historical_performance: Optional[Dict[str, Any]] = Field(None, description="Historical performance data")
+    timezone: str = Field(default="UTC", description="Preferred timezone for recommendations")
+    max_recommendations_per_platform: int = Field(default=5, ge=1, le=10, description="Max recommendations per platform")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "platforms": ["tiktok", "instagram"],
+                "target_audience": "Young professionals",
+                "content_type": "educational",
+                "geographic_region": "North America",
+                "timezone": "America/New_York",
+                "max_recommendations_per_platform": 3
+            }
+        }
+
+class ComprehensiveRecommendationResponse(BaseModel):
+    """Comprehensive recommendation response"""
+    success: bool = Field(default=True, description="Whether the request was successful")
+    hashtag_recommendations: Dict[str, List[EnhancedHashtag]] = Field(..., description="Hashtag recommendations by platform")
+    posting_recommendations: Dict[str, EnhancedPostingRecommendation] = Field(..., description="Posting recommendations by platform")
+    performance_insights: Dict[str, Dict[str, float]] = Field(..., description="Performance insights by platform")
+    generated_at: datetime = Field(default_factory=datetime.utcnow, description="Generation timestamp")
+    analysis_summary: Dict[str, Any] = Field(..., description="Summary of the analysis performed")
+    confidence_scores: Dict[str, float] = Field(..., description="Confidence scores by platform")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "hashtag_recommendations": {
+                    "tiktok": [
+                        {
+                            "tag": "fyp",
+                            "platform": "tiktok",
+                            "category": "trending",
+                            "relevance_score": 0.85,
+                            "engagement_prediction": 0.12,
+                            "trend_score": 0.95,
+                            "competition_level": "high"
+                        }
+                    ]
+                },
+                "posting_recommendations": {
+                    "tiktok": {
+                        "platform": "tiktok",
+                        "optimal_times": [],
+                        "posting_frequency": {},
+                        "content_format_suggestions": [],
+                        "engagement_tips": [],
+                        "audience_insights": {},
+                        "performance_predictions": {},
+                        "confidence_score": 0.87
+                    }
+                },
+                "performance_insights": {
+                    "tiktok": {
+                        "expected_engagement_rate": 0.08,
+                        "viral_potential": 0.15
+                    }
+                },
+                "generated_at": "2024-01-15T10:30:00Z",
+                "analysis_summary": {
+                    "platforms_analyzed": ["tiktok"],
+                    "content_category": "entertainment"
+                },
+                "confidence_scores": {
+                    "tiktok": 0.87
+                }
+            }
+        }

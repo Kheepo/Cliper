@@ -560,3 +560,7 @@ class ResourceMonitor:
     
     def get_usage_history(self, resource_type: ResourceType, 
                          hours: int = 24) -> List[ResourceUsage]:
+        """Get usage history for a resource type."""
+        history = self.usage_history.get(resource_type, [])
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+        return [usage for usage in history if usage.timestamp >= cutoff_time]
